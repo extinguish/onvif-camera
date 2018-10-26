@@ -95,26 +95,25 @@ public class CustomHttpServer extends TinyHttpServer {
 
         // If at some point a stream cannot start the exception is stored so that
         // it can be fetched in the HTTP interface to display an appropriate message
-        addCallbackListener(mListener);
+        CallbackListener listener = new CallbackListener() {
+            @Override
+            public void onError(TinyHttpServer server, Exception e, int error) {
+                if (error == ERROR_START_FAILED) {
+                    SpydroidApplication.getInstance().lastCaughtException = e;
+                }
+            }
+
+            @Override
+            public void onMessage(TinyHttpServer server, int message) {
+            }
+        };
+        addCallbackListener(listener);
 
         // HTTP is used by default for now
         mHttpEnabled = true;
         mHttpsEnabled = false;
 
     }
-
-    private CallbackListener mListener = new CallbackListener() {
-        @Override
-        public void onError(TinyHttpServer server, Exception e, int error) {
-            if (error == ERROR_START_FAILED) {
-                SpydroidApplication.getInstance().lastCaughtException = e;
-            }
-        }
-
-        @Override
-        public void onMessage(TinyHttpServer server, int message) {
-        }
-    };
 
     @Override
     public void onCreate() {
@@ -224,10 +223,8 @@ public class CustomHttpServer extends TinyHttpServer {
 
                 // A stream id can be specified in the URI, this id is associated to a session
                 List<NameValuePair> params = URLEncodedUtils.parse(URI.create(uri), "UTF-8");
-                uri = "";
                 if (params.size() > 0) {
-                    for (Iterator<NameValuePair> it = params.iterator(); it.hasNext(); ) {
-                        NameValuePair param = it.next();
+                    for (NameValuePair param : params) {
                         if (param.getName().equalsIgnoreCase("id")) {
                             try {
                                 id = Integer.parseInt(param.getValue());
@@ -271,23 +268,19 @@ public class CustomHttpServer extends TinyHttpServer {
                             mSessionList[id].session = UriParser.parse(uri);
                             mSessions.put(mSessionList[id].session, null);
                         }
-
                         // Sets proper origin & dest
                         mSessionList[id].session.setOrigin(socket.getLocalAddress().getHostAddress());
                         if (mSessionList[id].session.getDestination() == null) {
                             mSessionList[id].session.setDestination(socket.getInetAddress().getHostAddress());
                         }
-
                         // Starts all streams associated to the Session
                         boolean streaming = isStreaming();
                         mSessionList[id].session.syncStart();
                         if (!streaming && isStreaming()) {
                             postMessage(MESSAGE_STREAMING_STARTED);
                         }
-
                         mSessionList[id].description = mSessionList[id].session.getSessionDescription().replace("Unnamed", "Stream-" + id);
                         Log.v(TAG, mSessionList[id].description);
-
                     }
                 }
 
@@ -307,7 +300,6 @@ public class CustomHttpServer extends TinyHttpServer {
                 });
                 body.setContentType("application/sdp; charset=UTF-8");
                 response.setEntity(body);
-
             } catch (Exception e) {
                 mSessionList[id].uri = "";
                 response.setStatusCode(HttpStatus.SC_INTERNAL_SERVER_ERROR);
@@ -315,9 +307,6 @@ public class CustomHttpServer extends TinyHttpServer {
                 e.printStackTrace();
                 postError(e, ERROR_START_FAILED);
             }
-
         }
-
     }
-
 }
