@@ -1,0 +1,4 @@
+.gradle/
+.idea/
+spydroid-ipcamera.iml
+app/build/
