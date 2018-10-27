@@ -21,6 +21,7 @@
 package net.majorkernelpanic.spydroid.ui;
 
 import net.majorkernelpanic.http.TinyHttpServer;
+import net.majorkernelpanic.onvif.network.ONVIFHttpServer;
 import net.majorkernelpanic.spydroid.R;
 import net.majorkernelpanic.spydroid.SpydroidApplication;
 import net.majorkernelpanic.spydroid.api.CustomHttpServer;
@@ -128,6 +129,9 @@ public class SpydroidActivity extends FragmentActivity {
 
         // Starts the service of the RTSP server
         this.startService(new Intent(this, CustomRtspServer.class));
+
+        // Starts the service of ONVIF-HTTP server
+        this.startService(new Intent(this, ONVIFHttpServer.class));
     }
 
     public void onStart() {

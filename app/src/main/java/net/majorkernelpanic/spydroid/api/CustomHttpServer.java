@@ -47,7 +47,6 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
 import java.nio.charset.Charset;
-import java.util.Iterator;
 import java.util.List;
 import java.util.WeakHashMap;
 
@@ -64,6 +63,7 @@ import java.util.WeakHashMap;
  * All supported options are described in {@link UriParser}
  */
 public class CustomHttpServer extends TinyHttpServer {
+    private static final String TAG = "customHttpServer";
 
     /**
      * A stream failed to start.
@@ -127,7 +127,8 @@ public class CustomHttpServer extends TinyHttpServer {
     public void stop() {
         super.stop();
         // If user has started a session with the HTTP Server, we need to stop it
-        for (int i = 0; i < mDescriptionRequestHandler.mSessionList.length; i++) {
+        for (int i = 0, sessionLen = mDescriptionRequestHandler.mSessionList.length;
+             i < sessionLen; i++) {
             if (mDescriptionRequestHandler.mSessionList[i].session != null) {
                 boolean streaming = isStreaming();
                 mDescriptionRequestHandler.mSessionList[i].session.stop();
@@ -138,7 +139,6 @@ public class CustomHttpServer extends TinyHttpServer {
                 mDescriptionRequestHandler.mSessionList[i].session = null;
             }
         }
-
     }
 
     public boolean isStreaming() {
@@ -166,9 +166,7 @@ public class CustomHttpServer extends TinyHttpServer {
         }
 
         public void handle(HttpRequest request, HttpResponse response, HttpContext arg2) throws HttpException, IOException {
-
             if (request.getRequestLine().getMethod().equals("POST")) {
-
                 // Retrieve the POST content
                 HttpEntityEnclosingRequest post = (HttpEntityEnclosingRequest) request;
                 byte[] entityContent = EntityUtils.toByteArray(post.getEntity());
@@ -189,7 +187,6 @@ public class CustomHttpServer extends TinyHttpServer {
                 body.setContentType("application/json; charset=UTF-8");
                 response.setEntity(body);
             }
-
         }
     }
 
@@ -255,7 +252,6 @@ public class CustomHttpServer extends TinyHttpServer {
                     }
 
                     if (!stop) {
-
                         boolean b = false;
                         if (mSessionList[id].session != null) {
                             InetAddress dest = InetAddress.getByName(mSessionList[id].session.getDestination());
