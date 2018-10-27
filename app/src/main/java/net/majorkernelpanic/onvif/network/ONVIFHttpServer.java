@@ -27,8 +27,7 @@ import java.nio.charset.Charset;
 /**
  * 用于实现ONVIF的基础请求服务
  * <p>
- * 在正式的开发环境当中，都是通过使用gSOAP工具来支持开发的，因为所有的请求都是封装到
- * SOAP协议包当中的，如果我们选择手动实现的话，会包含很多重复的代码。
+ * TODO: 在正式的开发环境当中，都是通过使用gSOAP工具来支持开发的，因为所有的请求都是封装到SOAP协议包当中的，如果我们选择手动实现的话，会包含很多重复的代码。
  *
  */
 public class ONVIFHttpServer extends TinyHttpServer {
@@ -42,7 +41,7 @@ public class ONVIFHttpServer extends TinyHttpServer {
 
         descriptionHandler = new DescriptionHandler();
 
-        addRequestHandler("/spydroid.sdp*", descriptionHandler);
+        addRequestHandler("/onvif*", descriptionHandler);
         // TODO: 这里需要确定ONVIF请求的数据包格式
 
     }
