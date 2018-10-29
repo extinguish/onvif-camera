@@ -30,6 +30,9 @@
 
 只要我们将`rtsp`的地址交给`IPCamera-Viewer`，客户端就可以观看视频了(后期的视频控制，通过另外的`ws-service`实现).
 
+当我们测试`StreamUri`的请求和返回时，是结合[ONVIFCameraAndroid](https://github.com/rvi/ONVIFCameraAndroid.git)程序
+来进行测试的.
+
 --------------------------------------------------------
 
 ### `Probe` Packet

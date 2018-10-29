@@ -37,6 +37,8 @@ import java.util.LinkedList;
  * <p>
  * 在正式的开发环境当中，都是通过使用gSOAP工具来支持开发的，因为所有的请求都是封装到SOAP协议包当中的，
  * 如果我们选择手动实现的话，会包含很多重复的代码。
+ *
+ * TODO: 我们根据ONVIFCameraAndroid当中的OnvifMediaStreamURI来调试获取RTSP URL的过程.
  */
 public class ONVIFHttpServer extends TinyHttpServer {
     private static final String TAG = "onvifHttpServer";
