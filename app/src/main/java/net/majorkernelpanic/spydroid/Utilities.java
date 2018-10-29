@@ -114,41 +114,47 @@ public class Utilities {
         return null;
     }
 
+
     /**
-     * 当其他设备想要寻找我们当前的IPCamera的话，会发出Probe packet,然后我们收到该探测包之后，会发送一个
-     * 包作为响应,然后就可以进行正式的WebService通信服务了.
-     *
-     * @return 作为对ProbePacket的响应数据报.
+     * @param urnUUID      例如:e32e6863-ea5e-4ee4-997e-69539d1ff2cc
+     * @param requestUUID  例如:0a6dc791-2be6-4991-9af1-454778a1917a
+     * @param localAddress
+     * @return
      */
     public static String generateDeviceProbeMatchPacket(String urnUUID, String requestUUID, String localAddress) {
-        StringBuilder sb;
-        sb = new StringBuilder();
-        sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\r\n")
-                .append("<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:SOAP-ENC=\"http://www.w3.org/2003/05/soap-encoding\" xmlns:xsi=\"http://www" + ".w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:wsa=\"http://schemas.xmlsoap.org/ws/2004/08/addressing\" " + "xmlns:wsdd=\"http://schemas.xmlsoap.org/ws/2005/04/discovery\" xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\" xmlns:dn=\"http://www.onvif" + ".org/ver10/network/wsdl\">\r\n")
-                .append("   <SOAP-ENV:Header>\r\n").append(" <wsa:MessageID>urn:uuid").append(urnUUID).append("</wsa:MessageID>\r\n")
-                .append("       <wsa:RelatesTo>").append(requestUUID).append("</wsa:RelatesTo>\r\n")
-                .append("       <wsa:ReplyTo SOAP-ENV:mustUnderstand=\"true\">\r\n")
-                .append("           <wsa:Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:Address>\r\n")
-                .append("       </wsa:ReplyTo>\r\n")
-                .append("       <wsa:To SOAP-ENV:mustUnderstand=\"true\">http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:To>\r\n")
-                .append(" <wsa:Action SOAP-ENV:mustUnderstand=\"true\">http://schemas.xmlsoap.org/ws/2005/04/discovery/ProbeMatches</wsa:Action>\r\n")
-                .append(" <wsdd:AppSequence InstanceId=\"0\" MessageNumber=\"5\"></wsdd:AppSequence>\r\n")
-                .append("   </SOAP-ENV:Header>\r\n")
-                .append("   <SOAP-ENV:Body>\r\n")
-                .append("       <wsdd:ProbeMatches>\r\n")
-                .append("           <wsdd:ProbeMatch>\r\n")
-                .append("               <wsa:EndpointReference>\r\n")
-                .append("                   <wsa:Address>urn:uuid:").append(urnUUID).append("</wsa:Address>\r\n")
-                .append("               </wsa:EndpointReference>\r\n")
-                .append("               <wsdd:Types>dn:NetworkVideoTransmitter</wsdd:Types>\r\n")
-                .append("                   <wsdd:Scopes>onvif://www.onvif.org/Profile/Streaming onvif://www.onvif.org/type/video_encoder onvif://www.onvif" + ".org/type/audio_encoder onvif://www.onvif.org/hardware/ONVIF-Emu onvif://www.onvif.org/name/ONVIF-Emu onvif://www.onvif.org/location/Default</wsdd:Scopes> \r\n")
-                .append("               <wsdd:XAddrs>http://").append(localAddress).append(":8080/onvif/device_service</wsdd:XAddrs>\r\n")
-                .append("       <wsdd:MetadataVersion>10</wsdd:MetadataVersion>\r\n")
-                .append("       </wsdd:ProbeMatch>\r\n")
-                .append("       </wsdd:ProbeMatches>\r\n")
-                .append("    </SOAP-ENV:Body>\r\n")
-                .append("</SOAP-ENV:Envelope>");
-        return sb.toString();
+        return "<s:Envelope xmlns:a=\"http://www.w3.org/2005/08/addressing\"\n" +
+                "    xmlns:d=\"http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01\"\n" +
+                "    xmlns:i=\"http://printer.example.org/2003/imaging\"\n" +
+                "    xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" +
+                "    <s:Header>\n" +
+                "        <a:Action>http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/ProbeMatches</a:Action>\n" +
+                "        <a:MessageID>urn:uuid:" + urnUUID + "</a:MessageID>\n" +
+                "        <a:RelatesTo>urn:uuid:" + requestUUID +
+                "        </a:RelatesTo>\n" +
+                "        <a:To>http://www.w3.org/2005/08/addressing/anonymous\n" +
+                "        </a:To>\n" +
+                "        <d:AppSequence" +
+                "            InstanceId=\"1077004800\"\n" +
+                "            MessageNumber=\"2\" />\n" +
+                "    </s:Header>\n" +
+                "    <s:Body>\n" +
+                "        <d:ProbeMatches>\n" +
+                "            <d:ProbeMatch>\n" +
+                "                <a:EndpointReference>" +
+                "                    <a:Address>urn:uuid:98190dc2-0890-4ef8-ac9a-5940995e6119</a:Address>\n" +
+                "                </a:EndpointReference>\n" +
+                "                <d:Types>i:PrintBasic i:PrintAdvanced</d:Types>\n" +
+                "                <d:Scopes>\n" +
+                "                    ldap:///ou=engineering,o=examplecom,c=us\n" +
+                "                    ldap:///ou=floor1,ou=b42,ou=anytown,o=examplecom,c=us\n" +
+                "                    http://itdept/imaging/deployment/2004-12-04\n" +
+                "                </d:Scopes>\n" +
+                "                <d:XAddrs>http://" + localAddress + ":8080/onvif/device_service</d:XAddrs>\n" +
+                "                <d:MetadataVersion>75965</d:MetadataVersion>\n" +
+                "            </d:ProbeMatch>\n" +
+                "        </d:ProbeMatches>\n" +
+                "    </s:Body>\n" +
+                "</s:Envelope>";
     }
 
     @SuppressLint("HardwareIds")
@@ -201,7 +207,10 @@ public class Utilities {
         return sb.toString();
     }
 
-    private static String createAuthString() {
+    /**
+     * 这里的AuthString是用于IPCamera鉴权使用的
+     */
+    public static String createAuthString() {
         SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.CHINA);
         String created = df.format(new Date());
         String nonce = getNonce();

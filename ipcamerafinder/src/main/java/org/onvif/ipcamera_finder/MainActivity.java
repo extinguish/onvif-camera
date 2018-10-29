@@ -58,6 +58,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String WS_DISCOVERTY_ADDRESS = "FF02::1";
 //    private static final String WS_DISCOVERTY_ADDRESS = "0:0:0:0:0:ffff:efff:fffa";
 //    private static final String WS_DISCOVERTY_ADDRESS = "239.255.255.250";
+//    private static final String WS_DISCOVERTY_ADDRESS = "ff00:0:0:0:0:0:efff:fffa";
 
     private MulticastSocket createMulticastSocket(final String groupUrl, final int port) {
         if (TextUtils.isEmpty(groupUrl)) {
@@ -169,24 +170,29 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-
     private static final String PROBE_CONTENT =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                    "<e:Envelope xmlns:e=\"http://www.w3.org/2003/05/soap-envelope\"\n" +
-                    "xmlns:w=\"http://schemas.xmlsoap.org/ws/2004/08/addressing\"\n" +
-                    "xmlns:d=\"http://schemas.xmlsoap.org/ws/2005/04/discovery\"\n" +
-                    "xmlns:dn=\"http://www.onvif.org/ver10/network/wsdl\">\n" +
-                    "<e:Header>\n" +
-                    "<w:MessageID>uuid:84ede3de-7dec-11d0-c360-f01234567890</w:MessageID>\n" +
-                    "<w:To e:mustUnderstand=\"true\">urn:schemas-xmlsoap-org:ws:2005:04:discovery</w:To>\n" +
-                    "<w:Action\n" +
-                    "a:mustUnderstand=\"true\">http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe</w:Action>\n" +
-                    "</e:Header>\n" +
-                    "<e:Body>\n" +
-                    "<d:Probe>\n" +
-                    "<d:Types>dn:NetworkVideoTransmitter</d:Types>\n" +
-                    "</d:Probe>\n" +
-                    "</e:Body>\n" +
-                    "</e:Envelope>\n";
+            "<s:Envelope xmlns:a=\"http://www.w3.org/2005/08/addressing\"\n" +
+                    "    xmlns:d=\"http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01\"\n" +
+                    "    xmlns:i=\"http://printer.example.org/2003/imaging\"\n" +
+                    "    xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" +
+                    "    <s:Header>\n" +
+                    "        <a:Action>" +
+                    "            http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/Probe\n" +
+                    "        </a:Action>\n" +
+                    "        <a:MessageID>" +
+                    "            urn:uuid:0a6dc791-2be6-4991-9af1-454778a1917a\n" +
+                    "        </a:MessageID>\n" +
+                    "        <a:To>urn:docs-oasis-open-org:ws-dd:ns:discovery:2009:01</a:To>\n" +
+                    "    </s:Header>\n" +
+                    "    <s:Body>\n" +
+                    "        <d:Probe>\n" +
+                    "            <d:Types>i:PrintBasic</d:Types>\n" +
+                    "            <d:Scopes\n" +
+                    "                MatchBy=\"http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/ldap\">\n" +
+                    "                ldap:///ou=engineering,o=examplecom,c=us\n" +
+                    "            </d:Scopes>\n" +
+                    "        </d:Probe>\n" +
+                    "    </s:Body>\n" +
+                    "</s:Envelope>";
 
 }

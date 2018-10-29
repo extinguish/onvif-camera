@@ -8,3 +8,7 @@
 的话，就代表`Discovery`协议是可以工作。
 
 > 目前[ONVIF-Camera](https://github.com/yashrs/ONVIF-Camera.git)有一些问题，就是拉取到`RTSP`流之后播放有问题<br>，只可以播放一帧，应该是视频格式不支持。但是通过`ffplay`是可以播放`ONVIF-SpyDroid-Camera`的`RTSP`视频流的.
+
+
+--------------------------------------------------------------
+

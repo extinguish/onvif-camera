@@ -5,9 +5,7 @@ public class ONVIFDevDiscoveryReqHeader {
     private String messageId;
     private String action;
 
-    public ONVIFDevDiscoveryReqHeader(String messageId, String action) {
-        this.messageId = messageId;
-        this.action = action;
+    public ONVIFDevDiscoveryReqHeader() {
     }
 
     public String getMessageId() {

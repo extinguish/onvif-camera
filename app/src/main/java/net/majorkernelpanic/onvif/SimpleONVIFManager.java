@@ -11,6 +11,9 @@ import android.util.Log;
 import net.majorkernelpanic.spydroid.SpydroidApplication;
 import net.majorkernelpanic.spydroid.Utilities;
 
+import org.xml.sax.SAXException;
+
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
@@ -21,6 +24,10 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.ReentrantLock;
+
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 
 /**
  * 在SpyDroid的基础上实现ONVIF协议
@@ -62,9 +69,11 @@ public class SimpleONVIFManager {
      * <p>
      * 以下的地址是"239.255.255.250"对应的IPV6的格式.
      */
+    // TODO: 这里的地址是错误的，但是目前我们只能用这个地址测试，因为下面的IPV6版本的地址有问题(需要换成其他的设备测试一下)
     private static final String MULTICAST_HOST_IP = "FF02::1";
+//    private static final String MULTICAST_HOST_IP = "239.255.255.250"; // 这是正式的ws-service要求的组播地址，如果希望我们的IPCamera被发现，必须将我们的组播地址设置为该值
 //    private static final String MULTICAST_HOST_IP = "0:0:0:0:0:ffff:efff:fffa";
-//    private static final String MULTICAST_HOST_IP = "239.255.255.250";
+//    private static final String MULTICAST_HOST_IP = "ff00:0:0:0:0:0:efff:fffa";
 
     private static final ExecutorService PROBE_PACKET_RECEIVE_EXECUTOR = Executors.newSingleThreadExecutor();
 
@@ -191,6 +200,7 @@ public class SimpleONVIFManager {
      * 接收来自IPCameraViewer的探测packet
      */
     private void receiveProbePacket() {
+        // TODO: 这里的重复执行有问题，目前的问题是一旦发生异常之后，就无法再次接收信息
         Log.d(TAG, "start receive the Probe packet");
         if (multicastSocket == null) {
             Log.e(TAG, "the multicast socket are null");
@@ -232,7 +242,7 @@ public class SimpleONVIFManager {
      * 处理我们接收到的探测packet
      */
     private void handleReceivedProbePacket(DatagramPacket probePacket) {
-        Log.d(TAG, "------------> the raw packet we received are " + Utilities.flattenDatagramPacket(probePacket));
+        Log.d(TAG, "--> the raw packet we received are \n" + Utilities.flattenDatagramPacket(probePacket));
         final int packetDataOffset = probePacket.getOffset();
         final int packetDataLen = probePacket.getLength();
         byte[] receivedData = new byte[packetDataLen];
@@ -241,28 +251,51 @@ public class SimpleONVIFManager {
         String receivedRawMsg = new String(receivedData, packetDataOffset, packetDataLen);
         Log.d(TAG, "the raw received message are " + receivedRawMsg);
 
-        // 我们此时接收到了由IPCameraViewer发送过来的探测数据之后，需要返回响应包给对应的IPCameraViewer
-        ONVIFPacketHandler handler = new ONVIFPacketHandler(receivedRawMsg);
+        // 我们此时接收到了由IPCameraViewer发送过来的探测数据之后，
+        // 然后就是返回响应包给对应的IPCameraViewer
+        // 首先解析我们接收到的数据
+        SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
+        SAXParser saxParser = null;
+        try {
+            saxParser = saxParserFactory.newSAXParser();
+        } catch (ParserConfigurationException e) {
+            Log.e(TAG, "SAX Parse Configuration Exception happened", e);
+        } catch (SAXException e) {
+            Log.e(TAG, "SAX Exception happened", e);
+        }
+        if (saxParser == null) {
+            Log.e(TAG, "fail to get the SAX Parser, neglect this discovery packet");
+            return;
+        }
+
+        ONVIFPacketHandler handler = new ONVIFPacketHandler();
+        try {
+            saxParser.parse(new ByteArrayInputStream(receivedData), handler);
+        } catch (SAXException e) {
+            Log.e(TAG, "SAXException happened while processing the received message", e);
+        } catch (IOException e) {
+            Log.e(TAG, "IOException happened while processing the received message", e);
+        }
         ONVIFDevDiscoveryReqHeader reqHeader = handler.getReqHeader();
         String reqMessageId = reqHeader.getMessageId();
         String reqAction = reqHeader.getAction();
 
         Log.d(TAG, String.format("req message Id are %s, req action are %s", reqMessageId, reqAction));
 
-        // TODO: 返回响应的probeMatch packet
-        // TODO: 以下的数据封装有问题
-//        String requestUUID = Utilities.getDevId(context);
-//        String sendBack = Utilities.generateDeviceProbeMatchPacket(reqMessageId, requestUUID, serverIp);
-//        byte[] sendBuf = sendBack.getBytes();
-//
-//        try {
-//            Log.d(TAG, String.format("the probe packet address are %:%s" + probePacket.getAddress(), probePacket.getPort()));
-//            DatagramPacket packet = new DatagramPacket(sendBuf, sendBuf.length, probePacket.getAddress(), probePacket.getPort());
-//            multicastSocket.send(packet);
-//        } catch (final Exception e) {
-//            Log.e(TAG, "Exception happened while we send the response packet", e);
-//        }
-//        Log.d(TAG, "send the response data back");
-    }
+        // 返回响应的probeMatch packet
+        String requestUUID = Utilities.getDevId(context);
 
+        String sendBack = Utilities.generateDeviceProbeMatchPacket(reqMessageId, requestUUID, serverIp);
+        byte[] sendBuf = sendBack.getBytes();
+
+        try {
+
+            Log.d(TAG, "the probe packet address are " + probePacket.getAddress() + ":" + probePacket.getPort());
+            DatagramPacket packet = new DatagramPacket(sendBuf, sendBuf.length, probePacket.getAddress(), probePacket.getPort());
+            multicastSocket.send(packet);
+        } catch (final Exception e) {
+            Log.e(TAG, "Exception happened while we send the response packet", e);
+        }
+        Log.d(TAG, "send the response data back");
+    }
 }
