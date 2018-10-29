@@ -1,12 +1,13 @@
 package net.majorkernelpanic.onvif.network;
 
+import android.content.Intent;
+import android.os.Binder;
+import android.os.IBinder;
 import android.util.Log;
 
 import net.majorkernelpanic.http.TinyHttpServer;
 import net.majorkernelpanic.onvif.DeviceBackBean;
 import net.majorkernelpanic.spydroid.SpydroidApplication;
-import net.majorkernelpanic.spydroid.Utilities;
-import net.majorkernelpanic.spydroid.api.CustomHttpServer;
 
 import org.apache.http.HttpEntityEnclosingRequest;
 import org.apache.http.HttpException;
@@ -23,17 +24,26 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
+import java.util.LinkedList;
 
 /**
- * 用于实现ONVIF的基础请求服务
+ * 用于实现ONVIF的基础请求服务.
  * <p>
- * TODO: 在正式的开发环境当中，都是通过使用gSOAP工具来支持开发的，因为所有的请求都是封装到SOAP协议包当中的，如果我们选择手动实现的话，会包含很多重复的代码。
- *
+ * 首先ONVIF协议的实现也是基于HTTP协议的，因为所有的数据包最终底层还是通过HTTP协议发送的。
+ * ONVIF协议是在HTTP协议的基础之上，对数据进行了再次封装(按照WebService的xml格式包装).
+ * 因此我们将{@link ONVIFHttpServer}实现成{@link TinyHttpServer}的子类.
+ * {@link ONVIFHttpServer}需要的HTTP服务由父类提供，自己只是负责实现ONVIF数据的请求
+ * 和处理以及返回。
+ * <p>
+ * 在正式的开发环境当中，都是通过使用gSOAP工具来支持开发的，因为所有的请求都是封装到SOAP协议包当中的，
+ * 如果我们选择手动实现的话，会包含很多重复的代码。
  */
 public class ONVIFHttpServer extends TinyHttpServer {
     private static final String TAG = "onvifHttpServer";
 
     private DescriptionHandler descriptionHandler;
+
+    protected final LinkedList<CallbackListener> mListeners = new LinkedList<>();
 
     @Override
     public void onCreate() {
@@ -45,6 +55,45 @@ public class ONVIFHttpServer extends TinyHttpServer {
         // TODO: 这里需要确定ONVIF请求的数据包格式
 
     }
+
+    public interface CallbackListener {
+        void onError(ONVIFHttpServer server, Exception e, int error);
+
+        void onMessage(ONVIFHttpServer server, int message);
+    }
+
+    public void addCallbackListener(CallbackListener listener) {
+        this.mListeners.add(listener);
+    }
+
+    public void removeCallbackListener(CallbackListener listener) {
+        synchronized (mListeners) {
+            mListeners.remove(listener);
+        }
+    }
+
+    @Override
+    public void start() {
+        // 首先开启HTTP服务
+        super.start();
+        // 然后开始ONVIF数据的处理服务
+        Log.d(TAG, "start the ONVIF data processing action");
+
+
+    }
+
+    public class LocalBinder extends Binder {
+        public ONVIFHttpServer getService() {
+            return ONVIFHttpServer.this;
+        }
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return mBinder;
+    }
+
+    private final IBinder mBinder = new LocalBinder();
 
     /**
      * 基于ONVIF请求协议解析的DescriptionHandler

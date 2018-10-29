@@ -1,7 +1,5 @@
 package net.majorkernelpanic.onvif;
 
-import java.util.Objects;
-
 public class DeviceBackBean {
     private String userName;
 
@@ -28,6 +26,9 @@ public class DeviceBackBean {
     // the default port of which using to RTSP streaming action
     private String rtspPort = "8086";
     private String mediaTimeout = "PT30S";
+
+    public DeviceBackBean() {
+    }
 
     public String getUserName() {
         return userName;

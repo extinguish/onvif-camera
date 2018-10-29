@@ -25,6 +25,7 @@ import android.util.Log;
 
 import net.majorkernelpanic.onvif.DeviceStaticInfo;
 
+import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -113,7 +114,13 @@ public class Utilities {
         return null;
     }
 
-    public static String generateDeviceProbeMatchRequest(String urnUUID, String requestUUID, String localAddress) {
+    /**
+     * 当其他设备想要寻找我们当前的IPCamera的话，会发出Probe packet,然后我们收到该探测包之后，会发送一个
+     * 包作为响应,然后就可以进行正式的WebService通信服务了.
+     *
+     * @return 作为对ProbePacket的响应数据报.
+     */
+    public static String generateDeviceProbeMatchPacket(String urnUUID, String requestUUID, String localAddress) {
         StringBuilder sb;
         sb = new StringBuilder();
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\r\n")
@@ -199,5 +206,13 @@ public class Utilities {
         String created = df.format(new Date());
         String nonce = getNonce();
         return getEncodedPsw(nonce, DeviceStaticInfo.USER_PSW, created);
+    }
+
+    public static String flattenDatagramPacket(DatagramPacket packet) {
+        return String.format("packet address : %s, packet port : %s, packet socket address %s, packet data length : %s",
+                packet.getAddress().toString(),
+                packet.getPort(),
+                packet.getSocketAddress().toString(),
+                packet.getLength());
     }
 }

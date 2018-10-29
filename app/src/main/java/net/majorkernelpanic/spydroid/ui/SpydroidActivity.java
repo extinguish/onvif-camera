@@ -20,16 +20,6 @@
 
 package net.majorkernelpanic.spydroid.ui;
 
-import net.majorkernelpanic.http.TinyHttpServer;
-import net.majorkernelpanic.onvif.network.ONVIFHttpServer;
-import net.majorkernelpanic.spydroid.R;
-import net.majorkernelpanic.spydroid.SpydroidApplication;
-import net.majorkernelpanic.spydroid.api.CustomHttpServer;
-import net.majorkernelpanic.spydroid.api.CustomRtspServer;
-import net.majorkernelpanic.streaming.SessionBuilder;
-import net.majorkernelpanic.streaming.gl.SurfaceView;
-import net.majorkernelpanic.streaming.rtsp.RtspServer;
-
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.Notification;
@@ -55,16 +45,24 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.view.SurfaceHolder;
-import android.widget.LinearLayout;
 import android.widget.Toast;
+
+import net.majorkernelpanic.http.TinyHttpServer;
+import net.majorkernelpanic.onvif.SimpleONVIFManager;
+import net.majorkernelpanic.onvif.network.ONVIFHttpServer;
+import net.majorkernelpanic.spydroid.R;
+import net.majorkernelpanic.spydroid.SpydroidApplication;
+import net.majorkernelpanic.spydroid.api.CustomHttpServer;
+import net.majorkernelpanic.spydroid.api.CustomRtspServer;
+import net.majorkernelpanic.streaming.SessionBuilder;
+import net.majorkernelpanic.streaming.gl.SurfaceView;
+import net.majorkernelpanic.streaming.rtsp.RtspServer;
 
 /**
  * Spydroid basically launches an RTSP server and an HTTP server,
  * clients can then connect to them and start/stop audio/video streams on the phone.
  */
 public class SpydroidActivity extends FragmentActivity {
-
     static final public String TAG = "SpydroidActivity";
 
     public final int HANDSET = 0x01;
@@ -80,6 +78,9 @@ public class SpydroidActivity extends FragmentActivity {
     private SpydroidApplication mApplication;
     private CustomHttpServer mHttpServer;
     private RtspServer mRtspServer;
+    private ONVIFHttpServer mONVIFServer;
+
+    private SimpleONVIFManager mSimpleOnvifManager;
 
     @SuppressLint("InvalidWakeLockTag")
     public void onCreate(Bundle savedInstanceState) {
@@ -90,7 +91,6 @@ public class SpydroidActivity extends FragmentActivity {
         setContentView(R.layout.spydroid);
 
         if (findViewById(R.id.handset_pager) != null) {
-
             // Handset detected !
             mAdapter = new SectionsPagerAdapter(getSupportFragmentManager());
             mViewPager = (ViewPager) findViewById(R.id.handset_pager);
@@ -98,24 +98,16 @@ public class SpydroidActivity extends FragmentActivity {
             mSurfaceView = (SurfaceView) findViewById(R.id.handset_camera_view);
             SessionBuilder.getInstance().setSurfaceView(mSurfaceView);
             SessionBuilder.getInstance().setPreviewOrientation(90);
-
         } else {
-
             // Tablet detected !
             device = TABLET;
             mAdapter = new SectionsPagerAdapter(getSupportFragmentManager());
             mViewPager = (ViewPager) findViewById(R.id.tablet_pager);
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
             SessionBuilder.getInstance().setPreviewOrientation(0);
-
         }
 
         mViewPager.setAdapter(mAdapter);
-
-        // Remove the ads if this is the donate version of the app.
-//		if (mApplication.DONATE_VERSION) {
-//			((LinearLayout)findViewById(R.id.adcontainer)).removeAllViews();
-//		}
 
         // Prevents the phone from going to sleep mode
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
@@ -130,8 +122,10 @@ public class SpydroidActivity extends FragmentActivity {
         // Starts the service of the RTSP server
         this.startService(new Intent(this, CustomRtspServer.class));
 
-        // Starts the service of ONVIF-HTTP server
+        // 开始 ONVIF-HTTP server
         this.startService(new Intent(this, ONVIFHttpServer.class));
+
+        mSimpleOnvifManager = new SimpleONVIFManager(this);
     }
 
     public void onStart() {
@@ -160,17 +154,30 @@ public class SpydroidActivity extends FragmentActivity {
 
         bindService(new Intent(this, CustomHttpServer.class), mHttpServiceConnection, Context.BIND_AUTO_CREATE);
         bindService(new Intent(this, CustomRtspServer.class), mRtspServiceConnection, Context.BIND_AUTO_CREATE);
+        // 绑定到ONVIFHttpService
+        bindService(new Intent(this, ONVIFHttpServer.class), mONVIFHttpServiceConnection, Context.BIND_AUTO_CREATE);
     }
 
     @Override
     public void onStop() {
         super.onStop();
         // A WakeLock should only be released when isHeld() is true !
-        if (mWakeLock.isHeld()) mWakeLock.release();
-        if (mHttpServer != null) mHttpServer.removeCallbackListener(mHttpCallbackListener);
+        if (mWakeLock.isHeld()) {
+            mWakeLock.release();
+        }
+        if (mHttpServer != null) {
+            mHttpServer.removeCallbackListener(mHttpCallbackListener);
+        }
         unbindService(mHttpServiceConnection);
-        if (mRtspServer != null) mRtspServer.removeCallbackListener(mRtspCallbackListener);
+        if (mRtspServer != null) {
+            mRtspServer.removeCallbackListener(mRtspCallbackListener);
+        }
         unbindService(mRtspServiceConnection);
+        if (mONVIFServer != null) {
+            mONVIFServer.removeCallbackListener(mONVIFCallbackListener);
+        }
+
+        unbindService(mONVIFHttpServiceConnection);
     }
 
     @Override
@@ -233,6 +240,8 @@ public class SpydroidActivity extends FragmentActivity {
         this.stopService(new Intent(this, CustomHttpServer.class));
         // Kills RTSP server
         this.stopService(new Intent(this, CustomRtspServer.class));
+        // Kills the ONVIF server
+        this.stopService(new Intent(this, ONVIFHttpServer.class));
         // Returns to home menu
         finish();
     }
@@ -241,15 +250,30 @@ public class SpydroidActivity extends FragmentActivity {
 
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-            mRtspServer = (CustomRtspServer) ((RtspServer.LocalBinder) service).getService();
+            Log.d(TAG, "we have connected to the " + name.flattenToString());
+            mRtspServer = ((RtspServer.LocalBinder) service).getService();
             mRtspServer.addCallbackListener(mRtspCallbackListener);
             mRtspServer.start();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
+            Log.d(TAG, "we have lost the connection to " + name.flattenToString());
+        }
+    };
+
+    private ONVIFHttpServer.CallbackListener mONVIFCallbackListener = new ONVIFHttpServer.CallbackListener() {
+        @Override
+        public void onError(ONVIFHttpServer server, Exception e, int error) {
+            Log.d(TAG, "Error happened while processing the ONVIF data", e);
+
         }
 
+        @Override
+        public void onMessage(ONVIFHttpServer server, int message) {
+            Log.d(TAG, "On message of " + message);
+
+        }
     };
 
     private RtspServer.CallbackListener mRtspCallbackListener = new RtspServer.CallbackListener() {
@@ -280,13 +304,28 @@ public class SpydroidActivity extends FragmentActivity {
                     mAdapter.getHandsetFragment().update();
             }
         }
+    };
 
+    private ServiceConnection mONVIFHttpServiceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            Log.d(TAG, "we have connected to the service of " + name.flattenToString());
+            mONVIFServer = ((ONVIFHttpServer.LocalBinder) service).getService();
+            mONVIFServer.addCallbackListener(mONVIFCallbackListener);
+            mONVIFServer.start();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.d(TAG, "we have disconnect from the service of " + name.flattenToString());
+        }
     };
 
     private ServiceConnection mHttpServiceConnection = new ServiceConnection() {
 
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
+            Log.d(TAG, "connect to the Http Service of " + name.flattenToString());
             mHttpServer = (CustomHttpServer) ((TinyHttpServer.LocalBinder) service).getService();
             mHttpServer.addCallbackListener(mHttpCallbackListener);
             mHttpServer.start();
@@ -294,8 +333,9 @@ public class SpydroidActivity extends FragmentActivity {
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
-        }
+            Log.d(TAG, "lost connection to the Http Service");
 
+        }
     };
 
     private TinyHttpServer.CallbackListener mHttpCallbackListener = new TinyHttpServer.CallbackListener() {

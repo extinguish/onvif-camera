@@ -168,6 +168,9 @@ public class SpydroidApplication extends android.app.Application {
     };
 
     public DeviceBackBean getDeviceBackBean() {
+        if (deviceBackBean == null) {
+            deviceBackBean = new DeviceBackBean();
+        }
         return deviceBackBean;
     }
 

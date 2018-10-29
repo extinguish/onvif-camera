@@ -39,6 +39,7 @@ import java.util.regex.Pattern;
 import net.majorkernelpanic.streaming.Session;
 import net.majorkernelpanic.streaming.SessionBuilder;
 
+import android.annotation.SuppressLint;
 import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -65,6 +66,7 @@ import android.util.Log;
  * For each connected client, a Session is instantiated.
  * The Session will start or stop streams according to what the client wants.
  */
+@SuppressLint("Registered")
 public class RtspServer extends Service {
 
     public final static String TAG = "RtspServer";
