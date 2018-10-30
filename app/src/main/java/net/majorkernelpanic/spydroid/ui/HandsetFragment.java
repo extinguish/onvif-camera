@@ -51,7 +51,6 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 public class HandsetFragment extends Fragment {
-
     public final static String TAG = "HandsetFragment";
 
     private TextView mDescription1, mDescription2, mLine1, mLine2, mVersion, mSignWifi, mTextBitrate;
@@ -67,7 +66,6 @@ public class HandsetFragment extends Fragment {
         super.onCreate(savedInstanceState);
         mApplication = (SpydroidApplication) getActivity().getApplication();
     }
-
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -96,7 +94,6 @@ public class HandsetFragment extends Fragment {
         } catch (Exception e) {
             mVersion.setText("v???");
         }
-
     }
 
     @Override
@@ -174,7 +171,7 @@ public class HandsetFragment extends Fragment {
     private void displayIpAddress() {
         WifiManager wifiManager = (WifiManager) mApplication.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         WifiInfo info = wifiManager.getConnectionInfo();
-        String ipaddress = null;
+        String ipAddress;
         if (info != null && info.getNetworkId() > -1) {
             int i = info.getIpAddress();
             String ip = String.format(Locale.ENGLISH, "%d.%d.%d.%d", i & 0xff, i >> 8 & 0xff, i >> 16 & 0xff, i >> 24 & 0xff);
@@ -185,32 +182,29 @@ public class HandsetFragment extends Fragment {
             mLine2.append(ip);
             mLine2.append(":" + mRtspServer.getPort());
             streamingState(0);
-        } else if ((ipaddress = Utilities.getLocalIpAddress(true)) != null) {
+        } else if ((ipAddress = Utilities.getLocalIpAddress(true)) != null) {
             mLine1.setText(mHttpServer.isHttpsEnabled() ? "https://" : "http://");
-            mLine1.append(ipaddress);
+            mLine1.append(ipAddress);
             mLine1.append(":" + mHttpServer.getHttpPort());
             mLine2.setText("rtsp://");
-            mLine2.append(ipaddress);
+            mLine2.append(ipAddress);
             mLine2.append(":" + mRtspServer.getPort());
             streamingState(0);
         } else {
             streamingState(2);
         }
-
     }
 
     private final ServiceConnection mRtspServiceConnection = new ServiceConnection() {
-
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-            mRtspServer = (RtspServer) ((RtspServer.LocalBinder) service).getService();
+            mRtspServer = ((RtspServer.LocalBinder) service).getService();
             update();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
         }
-
     };
 
     private final ServiceConnection mHttpServiceConnection = new ServiceConnection() {
@@ -224,7 +218,6 @@ public class HandsetFragment extends Fragment {
         @Override
         public void onServiceDisconnected(ComponentName name) {
         }
-
     };
 
     // BroadcastReceiver that detects wifi state changements
@@ -254,5 +247,4 @@ public class HandsetFragment extends Fragment {
             }
         }
     };
-
 }

@@ -281,7 +281,6 @@ public class RtspServer extends Service {
     private OnSharedPreferenceChangeListener mOnSharedPreferenceChangeListener = new OnSharedPreferenceChangeListener() {
         @Override
         public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-
             if (key.equals(KEY_PORT)) {
                 int port = Integer.parseInt(sharedPreferences.getString(KEY_PORT, String.valueOf(mPort)));
                 if (port != mPort) {
@@ -371,7 +370,6 @@ public class RtspServer extends Service {
                     break;
                 } catch (IOException e) {
                     Log.e(TAG, e.getMessage());
-                    continue;
                 }
             }
             Log.i(TAG, "RTSP server stopped !");
@@ -392,7 +390,6 @@ public class RtspServer extends Service {
 
     // One thread per client
     class WorkerThread extends Thread implements Runnable {
-
         private final Socket mClient;
         private final OutputStream mOutput;
         private final BufferedReader mInput;
@@ -414,10 +411,8 @@ public class RtspServer extends Service {
             Log.i(TAG, "Connection from " + mClient.getInetAddress().getHostAddress());
 
             while (!Thread.interrupted()) {
-
                 request = null;
                 response = null;
-
                 // Parse the request
                 try {
                     request = Request.parseRequest(mInput);

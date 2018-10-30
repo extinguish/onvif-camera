@@ -19,6 +19,8 @@ package net.majorkernelpanic.spydroid;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.telephony.TelephonyManager;
 import android.util.Base64;
 import android.util.Log;
@@ -86,6 +88,27 @@ public class Utilities {
     public static boolean isIpv6Address(String ipAddress) {
         Matcher m1 = Utilities.VALID_IPV6_PATTERN.matcher(ipAddress);
         return m1.matches();
+    }
+
+    public static String getLocalDevIp(Context context) {
+        WifiManager wifiManager = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        if (wifiManager == null) {
+            throw new RuntimeException("Fail to get the WifiManager");
+        }
+        WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+        String ipAddress;
+        if (wifiInfo != null && wifiInfo.getNetworkId() > -1) {
+            int rawIpAddress = wifiInfo.getIpAddress();
+            ipAddress = String.format(Locale.ENGLISH, "%d.%d.%d.%d", rawIpAddress & 0xff,
+                    (rawIpAddress >> 8) & 0xff, (rawIpAddress >> 16) & 0xff,
+                    (rawIpAddress >> 24) & 0xff);
+            Log.d(TAG, "the ip address of the ONVIF-IPCamera are " + ipAddress);
+            return ipAddress;
+        } else if ((ipAddress = Utilities.getLocalIpAddress(true)) != null) {
+            return ipAddress;
+        }
+
+        throw new RuntimeException("fail to get local device ip address");
     }
 
 

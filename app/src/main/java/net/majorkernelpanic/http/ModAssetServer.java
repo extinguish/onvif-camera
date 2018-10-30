@@ -18,22 +18,11 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-
 package net.majorkernelpanic.http;
 
-import static net.majorkernelpanic.http.TinyHttpServer.TAG;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.net.URLDecoder;
-import java.util.Date;
-import java.util.Locale;
+import android.content.res.AssetFileDescriptor;
+import android.content.res.AssetManager;
+import android.util.Log;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpEntityEnclosingRequest;
@@ -52,15 +41,36 @@ import org.apache.http.protocol.HttpContext;
 import org.apache.http.protocol.HttpRequestHandler;
 import org.apache.http.util.EntityUtils;
 
-import android.content.res.AssetFileDescriptor;
-import android.content.res.AssetManager;
-import android.util.Log;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.net.URLDecoder;
+import java.util.Date;
+import java.util.Locale;
 
 /**
  * Serves the content of assets/www
+ * <p>
+ * {@link ModAssetServer}本身是被{@link TinyHttpServer}使用.
+ * 其中{@link ModAssetServer}是通过反射的方式被{@link TinyHttpServer}
+ * 所使用.
+ * {@link TinyHttpServer}本身注册了两种服务资源请求处理器，第一个是
+ * {@link ModAssetServer},另外一个就是{@link ModInternationalization}.
  */
 public class ModAssetServer implements HttpRequestHandler {
 
+    private static final String TAG = "ModAssetServer";
+
+    /**
+     * 在{@link TinyHttpServer}当中会获取到{@link #PATTERN},用于进行http请求的
+     * 资源匹配.
+     * 即在实际当中，谁的匹配度高，就优先调用哪个module的处理策略.
+     */
     public static final String PATTERN = "*";
 
     /**
@@ -86,14 +96,18 @@ public class ModAssetServer implements HttpRequestHandler {
         mAssetManager = mServer.mContext.getAssets();
     }
 
+    @Override
     public void handle(
             final HttpRequest request,
             final HttpResponse response,
             final HttpContext context) throws HttpException, IOException {
-        AbstractHttpEntity body = null;
+        AbstractHttpEntity body;
 
         final String method = request.getRequestLine().getMethod().toUpperCase(Locale.ENGLISH);
+        Log.d(TAG, "Handle the request in ModAssetServer");
+
         if (!method.equals("GET") && !method.equals("HEAD") && !method.equals("POST")) {
+            Log.e(TAG, "the request method \"" + method + "\" are not GET HEAD or POST, we cannot process such request");
             throw new MethodNotSupportedException(method + " method not supported");
         }
 
@@ -120,7 +134,7 @@ public class ModAssetServer implements HttpRequestHandler {
                         return;
                     }
                 } catch (DateParseException e) {
-                    e.printStackTrace();
+                    Log.e(TAG, "DateParse exception happened", e);
                 }
             }
 
@@ -130,13 +144,14 @@ public class ModAssetServer implements HttpRequestHandler {
 
                 // The asset is not compressed
                 FileInputStream fis = new FileInputStream(afd.getFileDescriptor());
-                fis.skip(afd.getStartOffset());
+                long skipCount = fis.skip(afd.getStartOffset());
+                Log.d(TAG, "the skip count are " + skipCount);
                 body = new InputStreamEntity(fis, afd.getDeclaredLength());
 
                 Log.d(TAG, "Serving uncompressed file " + "www" + url);
 
             } catch (FileNotFoundException e) {
-
+                Log.e(TAG, "fail to find the target request file under asset directory");
                 // The asset may be compressed
                 // AAPT compresses assets so first we need to uncompress them to determine their length
                 InputStream stream = mAssetManager.open(location, AssetManager.ACCESS_STREAMING);
@@ -148,13 +163,12 @@ public class ModAssetServer implements HttpRequestHandler {
                 stream.close();
 
                 Log.d(TAG, "Serving compressed file " + "www" + url);
-
             }
 
             body.setContentType(getMimeMediaType(url) + "; charset=UTF-8");
             response.addHeader("Last-Modified", DateUtils.formatDate(mServer.mLastModified));
-
         } catch (IOException e) {
+            Log.e(TAG, "response with file not found result to client");
             // File does not exist
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
             body = new EntityTemplate(new ContentProducer() {
@@ -184,5 +198,4 @@ public class ModAssetServer implements HttpRequestHandler {
         }
         return mimeMediaTypes[0];
     }
-
 }

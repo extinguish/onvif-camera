@@ -65,7 +65,7 @@ public class RequestHandler {
      * @param request Contains a json containing one or more requests
      * @return A JSON to send back
      */
-    static public String handle(String request) {
+    public static String handle(String request) {
         StringBuilder response = new StringBuilder();
         JSONTokener tokener = new JSONTokener(request);
 

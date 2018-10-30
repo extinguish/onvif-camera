@@ -86,7 +86,6 @@ import android.util.Log;
  * By default it serves files from /assets/www.
  */
 public class TinyHttpServer extends Service {
-
     /**
      * The tag used by the server.
      */
@@ -158,7 +157,14 @@ public class TinyHttpServer extends Service {
      **/
     protected String mCACommonName = "TinyHttpServer CA";
 
+    /**
+     * 用于注册特定的Http服务处理器
+     * 我们的ONVIF协议本身也是基于HTTP服务的，只是其导向的服务是特殊的，因此我们最好的实现应该是
+     * 做一个单独的module
+     * 而不是类似于{@link net.majorkernelpanic.onvif.network.ONVIFHttpServer}的实现.
+     */
     protected String[] MODULES = new String[]{
+            "ModOnvifServer",
             "ModAssetServer",
             "ModInternationalization"
     };
@@ -166,7 +172,7 @@ public class TinyHttpServer extends Service {
     protected int mHttpPort = DEFAULT_HTTP_PORT;
     protected int mHttpsPort = DEFAULT_HTTPS_PORT;
     protected boolean mHttpEnabled = true, mHttpsEnabled = false;
-    protected LinkedList<CallbackListener> mListeners = new LinkedList<>();
+    protected final LinkedList<CallbackListener> mListeners = new LinkedList<>();
 
     private BasicHttpProcessor mHttpProcessor;
     private HttpParams mParams;
@@ -183,14 +189,12 @@ public class TinyHttpServer extends Service {
      * Be careful: those callbacks won't necessarily be called from the ui thread !
      */
     public interface CallbackListener {
-
         /**
          * Called when an error occurs.
          */
         void onError(TinyHttpServer server, Exception e, int error);
 
         void onMessage(TinyHttpServer server, int message);
-
     }
 
     /**
@@ -297,7 +301,7 @@ public class TinyHttpServer extends Service {
      * Starts (or restart if needed) the HTTP server.
      */
     public void start() {
-
+        Log.d(TAG, "start the http server");
         // Stops the HTTP server if it has been disabled or if it needs to be restarted
         if ((!mHttpEnabled || mHttpUpdate) && mHttpRequestListener != null) {
             mHttpRequestListener.kill();
@@ -327,13 +331,17 @@ public class TinyHttpServer extends Service {
 
         mHttpUpdate = false;
         mHttpsUpdate = false;
+    }
 
+    public Context getContext() {
+        return mContext;
     }
 
     /**
      * Stops the HTTP server and/or the HTTPS server but not the Android service.
      */
     public void stop() {
+        Log.d(TAG, "stop the http server");
         if (mHttpRequestListener != null) {
             // Stops the HTTP server
             mHttpRequestListener.kill();
@@ -355,8 +363,7 @@ public class TinyHttpServer extends Service {
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
 
         mParams = new BasicHttpParams();
-        mParams
-                .setIntParameter(CoreConnectionPNames.SO_TIMEOUT, 5000)
+        mParams.setIntParameter(CoreConnectionPNames.SO_TIMEOUT, 5000)
                 .setIntParameter(CoreConnectionPNames.SOCKET_BUFFER_SIZE, 8 * 1024)
                 .setBooleanParameter(CoreConnectionPNames.STALE_CONNECTION_CHECK, false)
                 .setBooleanParameter(CoreConnectionPNames.TCP_NODELAY, true)
@@ -387,21 +394,19 @@ public class TinyHttpServer extends Service {
         mSharedPreferences.registerOnSharedPreferenceChangeListener(mOnSharedPreferenceChangeListener);
 
         // Loads plugins available in the package net.majorkernelpanic.http
-        for (int i = 0; i < MODULES.length; i++) {
+        for (String MODULE : MODULES) {
             try {
-                Class<?> pluginClass = Class.forName(TinyHttpServer.class.getPackage().getName() + "." + MODULES[i]);
+                Class<?> pluginClass = Class.forName(TinyHttpServer.class.getPackage().getName() + "." + MODULE);
                 Constructor<?> pluginConstructor = pluginClass.getConstructor(new Class[]{TinyHttpServer.class});
                 addRequestHandler((String) pluginClass.getField("PATTERN").get(null), (HttpRequestHandler) pluginConstructor.newInstance(this));
-            } catch (ClassNotFoundException ignore) {
-                // Module disabled
+            } catch (ClassNotFoundException e) {
+                Log.e(TAG, "fail to find the target class", e);
             } catch (Exception e) {
-                Log.e(TAG, "Bad module: " + MODULES[i]);
-                e.printStackTrace();
+                Log.e(TAG, "Bad module: " + MODULE);
             }
         }
 
         start();
-
     }
 
     @Override
@@ -419,27 +424,33 @@ public class TinyHttpServer extends Service {
     private OnSharedPreferenceChangeListener mOnSharedPreferenceChangeListener = new OnSharedPreferenceChangeListener() {
         @Override
         public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-
-            if (key.equals(KEY_HTTP_PORT)) {
-                int port = Integer.parseInt(sharedPreferences.getString(KEY_HTTP_PORT, String.valueOf(mHttpPort)));
-                if (port != mHttpPort) {
-                    mHttpPort = port;
-                    mHttpUpdate = true;
-                    start();
+            switch (key) {
+                case KEY_HTTP_PORT: {
+                    int port = Integer.parseInt(sharedPreferences.getString(KEY_HTTP_PORT, String.valueOf(mHttpPort)));
+                    if (port != mHttpPort) {
+                        mHttpPort = port;
+                        mHttpUpdate = true;
+                        start();
+                    }
+                    break;
                 }
-            } else if (key.equals(KEY_HTTPS_PORT)) {
-                int port = Integer.parseInt(sharedPreferences.getString(KEY_HTTPS_PORT, String.valueOf(mHttpsPort)));
-                if (port != mHttpsPort) {
-                    mHttpsPort = port;
-                    mHttpsUpdate = true;
-                    start();
+                case KEY_HTTPS_PORT: {
+                    int port = Integer.parseInt(sharedPreferences.getString(KEY_HTTPS_PORT, String.valueOf(mHttpsPort)));
+                    if (port != mHttpsPort) {
+                        mHttpsPort = port;
+                        mHttpsUpdate = true;
+                        start();
+                    }
+                    break;
                 }
-            } else if (key.equals(KEY_HTTPS_ENABLED)) {
-                mHttpsEnabled = sharedPreferences.getBoolean(KEY_HTTPS_ENABLED, true);
-                start();
-            } else if (key.equals(KEY_HTTP_ENABLED)) {
-                mHttpEnabled = sharedPreferences.getBoolean(KEY_HTTP_ENABLED, true);
-                start();
+                case KEY_HTTPS_ENABLED:
+                    mHttpsEnabled = sharedPreferences.getBoolean(KEY_HTTPS_ENABLED, true);
+                    start();
+                    break;
+                case KEY_HTTP_ENABLED:
+                    mHttpEnabled = sharedPreferences.getBoolean(KEY_HTTP_ENABLED, true);
+                    start();
+                    break;
             }
         }
     };
@@ -483,9 +494,12 @@ public class TinyHttpServer extends Service {
         }
     }
 
+    /**
+     * 普通的http服务
+     * 监听{@link TinyHttpServer#mHttpPort}.
+     */
     protected class HttpRequestListener extends RequestListener {
-
-        public HttpRequestListener(final int port) throws Exception {
+        HttpRequestListener(final int port) throws Exception {
             try {
                 ServerSocket serverSocket = new ServerSocket(port);
                 construct(serverSocket);
@@ -500,21 +514,21 @@ public class TinyHttpServer extends Service {
             super.kill();
             Log.i(TAG, "HTTP server stopped !");
         }
-
     }
 
+    /**
+     * https服务
+     * 监听{@link TinyHttpServer#mHttpsPort}.
+     */
     protected class HttpsRequestListener extends RequestListener {
-
         private X509KeyManager mKeyManager = null;
         private char[] mPassword;
         private boolean mNotSupported = false;
 
         private final String mClasspath = TinyHttpServer.class.getPackage().getName() + ".ModSSL$X509KeyManager";
 
-        public HttpsRequestListener(final int port) throws Exception {
-
+        HttpsRequestListener(final int port) throws Exception {
             SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(TinyHttpServer.this);
-
             if (!settings.contains(KEY_PASSWORD)) {
                 // Generates a password for the keystore
                 // TODO: entropy of Math.random() ?
@@ -537,6 +551,7 @@ public class TinyHttpServer extends Service {
                     InputStream is = mContext.openFileInput(KEYSTORE_FILE_NAME);
                     mKeyManager = (X509KeyManager) loadFromKeyStore.invoke(null, is, mPassword);
                 } catch (FileNotFoundException e) {
+                    Log.e(TAG, "fail to find " + KEYSTORE_FILE_NAME);
                 } catch (Exception e) {
                     Log.e(TAG, "Could not open keystore, a new one will be created...");
                     e.printStackTrace();
@@ -567,7 +582,6 @@ public class TinyHttpServer extends Service {
 
                 construct(serverSocket);
                 Log.i(TAG, "HTTPS server listening on port " + serverSocket.getLocalPort());
-
             } catch (NoSuchMethodException e) {
                 // HTTPS support disabled !
                 Log.e(TAG, "HTTPS not supported !");
@@ -582,15 +596,14 @@ public class TinyHttpServer extends Service {
                 postError(e, ERROR_HTTPS_SERVER_CRASHED);
                 throw e;
             }
-
         }
 
         private String arrToString(String[] list) {
-            String str = "";
-            for (int i = 0; i < list.length; i++) {
-                str += list[i] + ";";
+            StringBuilder str = new StringBuilder();
+            for (String aList : list) {
+                str.append(aList).append(";");
             }
-            return str;
+            return str.toString();
         }
 
         /**
@@ -616,23 +629,19 @@ public class TinyHttpServer extends Service {
                 Log.i(TAG, "HTTPS server stopped !");
             }
         }
-
     }
 
     private class RequestListener extends Thread {
-
         private ServerSocket mServerSocket;
         private final org.apache.http.protocol.HttpService mHttpService;
 
         protected RequestListener() throws Exception {
-
             mHttpService = new org.apache.http.protocol.HttpService(
                     mHttpProcessor,
                     new DefaultConnectionReuseStrategy(),
                     new DefaultHttpResponseFactory());
             mHttpService.setHandlerResolver(mRegistry);
             mHttpService.setParams(mParams);
-
         }
 
         protected void construct(ServerSocket serverSocket) {
@@ -665,6 +674,7 @@ public class TinyHttpServer extends Service {
                     t.setDaemon(true);
                     t.start();
                 } catch (SocketException e) {
+                    Log.e(TAG, "SocketException happened while setup the HTTP connection", e);
                     break;
                 } catch (InterruptedIOException ex) {
                     Log.e(TAG, "Interrupted !");
@@ -678,7 +688,6 @@ public class TinyHttpServer extends Service {
     }
 
     static class WorkerThread extends Thread {
-
         private final org.apache.http.protocol.HttpService httpservice;
         private final HttpServerConnection conn;
         private final Socket socket;
@@ -701,7 +710,7 @@ public class TinyHttpServer extends Service {
                     try {
                         this.httpservice.handleRequest(this.conn, context);
                     } catch (UnsupportedOperationException e) {
-                        e.printStackTrace();
+                        Log.e(TAG, "fail to handle the http request", e);
                         // shutdownOutput is not implemented by SSLSocket, and it is called in the implementation
                         // of org.apache.http.impl.SocketHttpServerConnection.close().
                     }
@@ -722,10 +731,12 @@ public class TinyHttpServer extends Service {
                     sockOutOStream.flush();
                     socket.close();
                 } catch (IOException e) {
+                    Log.e(TAG, "IOException happened while close the Socket connection", e);
                 }
                 try {
                     this.conn.shutdown();
-                } catch (Exception ignore) {
+                } catch (Exception e) {
+                    Log.e(TAG, "Exception happened while close the connection", e);
                 }
             }
         }
@@ -749,7 +760,6 @@ public class TinyHttpServer extends Service {
         public Socket getSocket() {
             return socket;
         }
-
     }
 
     /**
@@ -779,11 +789,9 @@ public class TinyHttpServer extends Service {
 
         public synchronized HttpRequestHandler lookup(final String requestURI) {
             // This is the only function that will often be called by threads of the HTTP server
-            // and it seems like a rather small crtical section to me, so it should not slow things down much
+            // and it seems like a rather small critical section to me, so it should not slow things down much
             return (HttpRequestHandler) matcher.lookup(requestURI);
         }
-
     }
-
 }
 

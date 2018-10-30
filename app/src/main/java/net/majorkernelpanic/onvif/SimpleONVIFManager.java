@@ -98,7 +98,7 @@ public class SimpleONVIFManager {
         }
         multicastSocket = createMulticastSocket();
 
-        serverIp = getLocalDevIp();
+        serverIp = Utilities.getLocalDevIp(context);
         initData();
 
         if (DEBUG_SEND_PACKET) {
@@ -121,27 +121,6 @@ public class SimpleONVIFManager {
                 sProbePacketPoster.postDelayed(this, PROBE_PACKET_SEND_OUT_INTERVAL);
             }
         });
-    }
-
-    private String getLocalDevIp() {
-        WifiManager wifiManager = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        if (wifiManager == null) {
-            throw new RuntimeException("Fail to get the WifiManager");
-        }
-        WifiInfo wifiInfo = wifiManager.getConnectionInfo();
-        String ipAddress;
-        if (wifiInfo != null && wifiInfo.getNetworkId() > -1) {
-            int rawIpAddress = wifiInfo.getIpAddress();
-            ipAddress = String.format(Locale.ENGLISH, "%d.%d.%d.%d", rawIpAddress & 0xff,
-                    (rawIpAddress >> 8) & 0xff, (rawIpAddress >> 16) & 0xff,
-                    (rawIpAddress >> 24) & 0xff);
-            Log.d(TAG, "the ip address of the ONVIF-IPCamera are " + ipAddress);
-            return ipAddress;
-        } else if ((ipAddress = Utilities.getLocalIpAddress(true)) != null) {
-            return ipAddress;
-        }
-
-        throw new RuntimeException("fail to get local device ip address");
     }
 
     private MulticastSocket createMulticastSocket() {
@@ -285,11 +264,14 @@ public class SimpleONVIFManager {
         // 返回响应的probeMatch packet
         String requestUUID = Utilities.getDevId(context);
 
+        // 我们在返回的probeMatch packet当中放入了当前设备(即IPCamera)的IP地址
+        // 这样客户端(IPCamera-Viewer)就可以借助这个IP地址，直接向这个IP地址发起
+        // ONVIF请求(ONVIF底层是基于HTTP协议的),然后我们自己(IPCamera)就可以处理
+        // 这些请求，然后做出对应的操作,例如返回StreamUri等.
         String sendBack = Utilities.generateDeviceProbeMatchPacket(reqMessageId, requestUUID, serverIp);
         byte[] sendBuf = sendBack.getBytes();
 
         try {
-
             Log.d(TAG, "the probe packet address are " + probePacket.getAddress() + ":" + probePacket.getPort());
             DatagramPacket packet = new DatagramPacket(sendBuf, sendBuf.length, probePacket.getAddress(), probePacket.getPort());
             multicastSocket.send(packet);

@@ -39,6 +39,7 @@ import org.apache.http.entity.EntityTemplate;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.protocol.HttpRequestHandler;
 import org.apache.http.util.EntityUtils;
+import org.spongycastle.asn1.pkcs.PBES2Algorithms;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -171,6 +172,7 @@ public class CustomHttpServer extends TinyHttpServer {
                 HttpEntityEnclosingRequest post = (HttpEntityEnclosingRequest) request;
                 byte[] entityContent = EntityUtils.toByteArray(post.getEntity());
                 String content = new String(entityContent, Charset.forName("UTF-8"));
+                Log.d(TAG, "handle request of " + content);
 
                 // Execute the request
                 final String json = RequestHandler.handle(content);
@@ -213,11 +215,11 @@ public class CustomHttpServer extends TinyHttpServer {
         public synchronized void handle(HttpRequest request, HttpResponse response, HttpContext context) throws HttpException {
             Socket socket = ((TinyHttpServer.MHttpContext) context).getSocket();
             String uri = request.getRequestLine().getUri();
+            Log.d(TAG, "handle the request of " + uri);
             int id = 0;
             boolean stop = false;
 
             try {
-
                 // A stream id can be specified in the URI, this id is associated to a session
                 List<NameValuePair> params = URLEncodedUtils.parse(URI.create(uri), "UTF-8");
                 if (params.size() > 0) {
