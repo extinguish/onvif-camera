@@ -218,6 +218,7 @@ public class RtspServer extends Service {
                     }
                 }
             } catch (Exception e) {
+                Log.e(TAG, "Exception happened while we stop the RTSP server");
             } finally {
                 mListenerThread = null;
             }
@@ -268,7 +269,6 @@ public class RtspServer extends Service {
 
         // If the configuration is modified, the server will adjust
         mSharedPreferences.registerOnSharedPreferenceChangeListener(mOnSharedPreferenceChangeListener);
-
         start();
     }
 
@@ -417,6 +417,7 @@ public class RtspServer extends Service {
                 try {
                     request = Request.parseRequest(mInput);
                 } catch (SocketException e) {
+                    Log.e(TAG, "the client has left", e);
                     // Client has left
                     break;
                 } catch (Exception e) {
@@ -441,6 +442,10 @@ public class RtspServer extends Service {
                 // We always send a response
                 // The client will receive an "INTERNAL SERVER ERROR" if an exception has been thrown at some point
                 try {
+                    if (response == null) {
+                        Log.e(TAG, "the response are null");
+                        break;
+                    }
                     response.send(mOutput);
                 } catch (IOException e) {
                     Log.e(TAG, "Response was not sent properly");
@@ -459,11 +464,11 @@ public class RtspServer extends Service {
 
             try {
                 mClient.close();
-            } catch (IOException ignore) {
+            } catch (IOException e) {
+                Log.d(TAG, "Exception happened while we close the client", e);
             }
 
             Log.i(TAG, "Client disconnected");
-
         }
 
         public Response processRequest(Request request) throws IllegalStateException, IOException {
@@ -489,7 +494,6 @@ public class RtspServer extends Service {
 
                 // If no exception has been thrown, we reply with OK
                 response.status = Response.STATUS_OK;
-
             }
 
             /* ********************************************************************************** */
@@ -561,7 +565,6 @@ public class RtspServer extends Service {
 
                 // If no exception has been thrown, we reply with OK
                 response.status = Response.STATUS_OK;
-
             }
 
             /* ********************************************************************************** */
@@ -579,7 +582,6 @@ public class RtspServer extends Service {
 
                 // If no exception has been thrown, we reply with OK
                 response.status = Response.STATUS_OK;
-
             }
 
             /* ********************************************************************************** */
@@ -603,15 +605,11 @@ public class RtspServer extends Service {
                 Log.e(TAG, "Command unknown: " + request);
                 response.status = Response.STATUS_BAD_REQUEST;
             }
-
             return response;
-
         }
-
     }
 
     static class Request {
-
         // Parse method & uri
         public static final Pattern regexMethod = Pattern.compile("(\\w+) (\\S+) RTSP", Pattern.CASE_INSENSITIVE);
         // Parse a request header

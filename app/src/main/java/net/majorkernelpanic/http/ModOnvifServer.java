@@ -1,6 +1,10 @@
 package net.majorkernelpanic.http;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.os.Build;
+import android.preference.PreferenceManager;
 import android.util.Log;
 
 import net.majorkernelpanic.spydroid.Utilities;
@@ -29,6 +33,9 @@ import java.io.OutputStreamWriter;
 import java.net.URLDecoder;
 import java.util.Locale;
 
+import static net.majorkernelpanic.streaming.rtsp.RtspServer.DEFAULT_RTSP_PORT;
+import static net.majorkernelpanic.streaming.rtsp.RtspServer.KEY_PORT;
+
 /**
  * 同{@link ModAssetServer}的工作方式一样。
  * 只是这里针对的是ONVIF协议的处理.
@@ -54,9 +61,13 @@ public class ModOnvifServer implements HttpRequestHandler {
 
     private final Context mContext;
 
+    private int mRtspServerPort;
+
     public ModOnvifServer(TinyHttpServer server) {
         this.mServer = server;
         mContext = server.getContext();
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
+        mRtspServerPort = Integer.parseInt(sharedPreferences.getString(KEY_PORT, String.valueOf(DEFAULT_RTSP_PORT)));
     }
 
     /**
@@ -100,8 +111,9 @@ public class ModOnvifServer implements HttpRequestHandler {
                 body = new InputStreamEntity(servicesResponseInputStream, responseContentByteArr.length);
             } else if (requestContent.contains("GetDeviceInformation")) {
                 Log.d(TAG, "is GetDeviceInformation interface");
-                String getDevInfoResponse = constructOnvifDevInfoResponse("ky_lab", "Sumsung",
-                        "1.0", "1000", Utilities.getDevId(mContext));
+
+                String getDevInfoResponse = constructOnvifDevInfoResponse(DEV_MANUFACTURE, DEV_MODEL,
+                        DEV_FIRMWARE_VERSION, DEV_SERIAL_NUM, Utilities.getDevId(mContext));
                 byte[] responseContentByteArr = getDevInfoResponse.getBytes("UTF-8");
                 InputStream devInfoResponseInputStream = new ByteArrayInputStream(responseContentByteArr);
                 body = new InputStreamEntity(devInfoResponseInputStream, responseContentByteArr.length);
@@ -113,8 +125,8 @@ public class ModOnvifServer implements HttpRequestHandler {
                 body = new InputStreamEntity(profileResponseInputStream, responseContentByteArr.length);
             } else if (requestContent.contains("GetStreamUri")) {
                 Log.d(TAG, "is GetStreamUri interface");
-                // TODO: 这里的rtsp的地址应该是动态的从RtspServer当中获取
-                String getStreamUriResponse = constructOnvifStreamUriResponse("rtsp://172.16.0.50:8086");
+                String rtspServerUrl = "rtsp://" + Utilities.getLocalDevIp(mContext) + ":" + mRtspServerPort;
+                String getStreamUriResponse = constructOnvifStreamUriResponse(rtspServerUrl);
                 byte[] responseContentByteArr = getStreamUriResponse.getBytes("UTF-8");
                 InputStream streamUriContentInputStream = new ByteArrayInputStream(responseContentByteArr);
                 body = new InputStreamEntity(streamUriContentInputStream, responseContentByteArr.length);
@@ -140,6 +152,12 @@ public class ModOnvifServer implements HttpRequestHandler {
         }
     }
 
+    private static final String DEV_MANUFACTURE = Build.MANUFACTURER;
+    private static final String DEV_MODEL = Build.MODEL;
+    private static final String DEV_FIRMWARE_VERSION = Build.VERSION.RELEASE;
+    @SuppressLint("HardwareIds")
+    private static final String DEV_SERIAL_NUM = Build.SERIAL;
+
     /**
      * 针对GetServices接口的返回数据
      * <p>
@@ -149,7 +167,6 @@ public class ModOnvifServer implements HttpRequestHandler {
      * @param localIpAddress 当前设备的IP地址
      */
     private String constructOnvifDeviceServiceResponse(String localIpAddress) {
-
         String responseContent = "<?xml version='1.0' encoding='utf-8' ?>\n" +
                 "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\"\n" +
                 "    xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\"\n" +

@@ -24,8 +24,6 @@ android {
 
 dependencies {
     compile 'com.android.support:support-v4:19.1.0'
-//    compile 'com.google.android.gms:play-services:+'
-//    compile files('libs/GoogleAdMobAdsSdk-6.1.0.jar')
     compile files('libs/acra-4.4.0.jar')
     compile files('libs/sc-light-jdk15on-1.47.0.2.jar')
     compile files('libs/scpkix-jdk15on-1.47.0.2.jar')
