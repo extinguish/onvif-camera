@@ -36,10 +36,18 @@ public class VideoQuality {
     public final static String TAG = "VideoQuality";
 
     /**
+     * 对于我们自己的应用来说,传输的视频的宽,高,帧率以及比特率都是固定的.
+     */
+    public static final int VIDEO_RES_X = 640;
+    public static final int VIDEO_RES_Y = 480;
+    public static final int VIDEO_FRAME_RATE = 15;
+    public static final int VIDEO_BITRATE = 250000;
+
+    /**
      * Default video stream quality.
      */
     public final static VideoQuality DEFAULT_VIDEO_QUALITY =
-            new VideoQuality(640, 480, 15, 250000);
+            new VideoQuality(VIDEO_RES_X, VIDEO_RES_Y, VIDEO_FRAME_RATE, VIDEO_BITRATE);
 
     /**
      * Represents a quality for a video stream.

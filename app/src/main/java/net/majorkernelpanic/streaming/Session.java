@@ -39,27 +39,49 @@ import net.majorkernelpanic.streaming.video.VideoStream;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.util.Log;
 
 /**
  * You should instantiate this class with the {@link SessionBuilder}.<br />
  * This is the class you will want to use to stream audio and or video to some peer using RTP.<br />
  * <p>
  * It holds a {@link VideoStream} and a {@link AudioStream} together and provides
- * syncronous and asyncrounous functions to start and stop those steams.
+ * synchronous and asynchronous functions to start and stop those steams.
  * You should implement a callback interface {@link Callback} to receive notifications and error reports.<br />
  * <p>
- * If you want to stream to a RTSP server, you will need an instance of this class and hand it to a {@link RtspClient}.
+ * If you want to stream to a RTSP server, you will need an instance of this class and hand it to a
+ * {@link RtspClient}.
  * <p>
  * If you don't use the RTSP protocol, you will still need to send a session description to the receiver
  * for him to be able to decode your audio/video streams. You can obtain this session description by calling
  * {@link #configure()} or {@link #syncConfigure()} to configure the session with its parameters
- * (audio samplingrate, video resolution) and then {@link Session#getSessionDescription()}.<br />
+ * (audio samplingRate, video resolution) and then {@link Session#getSessionDescription()}.<br />
  * <p>
  * See the example 2 here: https://github.com/fyhertz/libstreaming-examples to
  * see an example of how to get a SDP.<br />
  * <p>
  * See the example 3 here: https://github.com/fyhertz/libstreaming-examples to
  * see an example of how to stream to a RTSP server.<br />
+ * <p>
+ * SpyDroid本身的推流过程分成了三部分:
+ * 1. 首先就是本地的相机当中把数据读取出来;
+ * 2. 然后就是将这些数据进行编码，然后推到RtspServer当中;
+ * 3. 最后就是客户端从RtspServer当中拉流;
+ * <p>
+ * 需要注意的是上面的1和2都是在SpyDroid当中完成的.
+ * <p>
+ * {@link Session}才是整个视频流处理的核心.
+ * 一切操作都是围绕该{@link Session}进行展开的,Session控制了视频流的编码以及推送的目的地等信息.
+ * <p>
+ * {@link net.majorkernelpanic.streaming.rtsp.RtspServer}是直接同{@link Session}
+ * 进行交互，而不是同原始的视频流.
+ * <p>
+ * Session是一个中间的协调器,本身为了视频的编码状态等信息.
+ * <p>
+ * 这也是一种设计思想，更加符合OOP的设计理念.
+ * <p>
+ * 另外就是从RTSP协议本身出发，可以看到RTSP当中的每次通信过程本身也是以Session为单位
+ * 进行划分的.
  */
 public class Session {
 
@@ -147,6 +169,7 @@ public class Session {
         try {
             sSignal.await();
         } catch (InterruptedException e) {
+            Log.e(TAG, "InterruptedException happened", e);
         }
     }
 
@@ -160,21 +183,21 @@ public class Session {
          * Called periodically to inform you on the bandwidth
          * consumption of the streams when streaming.
          */
-        public void onBitrareUpdate(long bitrate);
+        void onBitrateUpdate(long bitrate);
 
         /**
          * Called when some error occurs.
          */
-        public void onSessionError(int reason, int streamType, Exception e);
+        void onSessionError(int reason, int streamType, Exception e);
 
         /**
-         * Called when the previw of the {@link VideoStream}
+         * Called when the preview of the {@link VideoStream}
          * has correctly been started.
          * If an error occurs while starting the preview,
          * {@link Callback#onSessionError(int, int, Exception)} will be
          * called instead of {@link Callback#onPreviewStarted()}.
          */
-        public void onPreviewStarted();
+        void onPreviewStarted();
 
         /**
          * Called when the session has correctly been configured
@@ -183,7 +206,7 @@ public class Session {
          * {@link Callback#onSessionError(int, int, Exception)} will be
          * called instead of  {@link Callback#onSessionConfigured()}.
          */
-        public void onSessionConfigured();
+        void onSessionConfigured();
 
         /**
          * Called when the streams of the session have correctly been started.
@@ -191,13 +214,12 @@ public class Session {
          * {@link Callback#onSessionError(int, int, Exception)} will be
          * called instead of  {@link Callback#onSessionStarted()}.
          */
-        public void onSessionStarted();
+        void onSessionStarted();
 
         /**
          * Called when the stream of the session have been stopped.
          */
-        public void onSessionStopped();
-
+        void onSessionStopped();
     }
 
     /**
@@ -261,7 +283,7 @@ public class Session {
 
     /**
      * The origin address of the session.
-     * It appears in the sessionn description.
+     * It appears in the session description.
      *
      * @param origin The origin address
      */
@@ -388,7 +410,7 @@ public class Session {
     }
 
     /**
-     * Returns an approximation of the bandwidth consumed by the session in bit per seconde.
+     * Returns an approximation of the bandwidth consumed by the session in bit per seconds.
      */
     public long getBitrate() {
         long sum = 0;
@@ -401,10 +423,8 @@ public class Session {
      * Indicates if a track is currently running.
      */
     public boolean isStreaming() {
-        if ((mAudioStream != null && mAudioStream.isStreaming()) || (mVideoStream != null && mVideoStream.isStreaming()))
-            return true;
-        else
-            return false;
+        return (mAudioStream != null && mAudioStream.isStreaming())
+                || (mVideoStream != null && mVideoStream.isStreaming());
     }
 
     /**
@@ -416,9 +436,9 @@ public class Session {
             public void run() {
                 try {
                     syncConfigure();
-                } catch (Exception e) {
+                } catch (final Exception e) {
+                    Log.e(TAG, "Exception happened while sync the configuration", e);
                 }
-                ;
             }
         });
     }
@@ -429,14 +449,7 @@ public class Session {
      * {@link Callback#onSessionError(int, int, Exception)} when
      * an error occurs.
      **/
-    public void syncConfigure()
-            throws CameraInUseException,
-            StorageUnavailableException,
-            ConfNotSupportedException,
-            InvalidSurfaceException,
-            RuntimeException,
-            IOException {
-
+    public void syncConfigure() throws RuntimeException, IOException {
         for (int id = 0; id < 2; id++) {
             Stream stream = id == 0 ? mAudioStream : mVideoStream;
             if (stream != null && !stream.isStreaming()) {
@@ -467,34 +480,42 @@ public class Session {
     }
 
     /**
-     * Asyncronously starts all streams of the session.
+     * Asynchronously starts all streams of the session.
      **/
     public void start() {
+        Log.v(TAG, "starts all streams asynchronously");
         sHandler.post(new Runnable() {
             @Override
             public void run() {
                 try {
+                    Log.d(TAG, "start all streams");
                     syncStart();
                 } catch (Exception e) {
+                    Log.e(TAG, "Exception happened while start the stream", e);
                 }
             }
         });
     }
 
+    private static String getStreamName(int streamId) {
+        if (streamId == 0) {
+            return "audioStream";
+        }
+        return "videoStream";
+    }
+
     /**
-     * Starts a stream in a syncronous manner.
+     * Starts a stream in a synchronous manner.
      * Throws exceptions in addition to calling a callback.
      *
-     * @param id The id of the stream to start
+     * @param id The id of the stream to start(这里的id值主要是为了区分音频流和视频流)
      **/
     public void syncStart(int id)
             throws CameraInUseException,
-            StorageUnavailableException,
             ConfNotSupportedException,
             InvalidSurfaceException,
-            UnknownHostException,
             IOException {
-
+        Log.d(TAG, "start stream with id of " + getStreamName(id));
         Stream stream = id == 0 ? mAudioStream : mVideoStream;
         if (stream != null && !stream.isStreaming()) {
             try {
@@ -531,21 +552,15 @@ public class Session {
                 throw e;
             }
         }
-
     }
 
     /**
-     * Does the same thing as {@link #start()}, but in a syncronous manner.
+     * Does the same thing as {@link #start()}, but in a synchronous manner.
      * Throws exceptions in addition to calling a callback.
      **/
-    public void syncStart()
-            throws CameraInUseException,
-            StorageUnavailableException,
-            ConfNotSupportedException,
-            InvalidSurfaceException,
-            UnknownHostException,
-            IOException {
-
+    public void syncStart() throws CameraInUseException, ConfNotSupportedException,
+            InvalidSurfaceException, IOException {
+        Log.v(TAG, "Session --> sync start");
         syncStart(1);
         try {
             syncStart(0);
@@ -706,6 +721,7 @@ public class Session {
     }
 
     private void postSessionStarted() {
+        Log.d(TAG, "session started");
         mMainHandler.post(new Runnable() {
             @Override
             public void run() {
@@ -717,6 +733,7 @@ public class Session {
     }
 
     private void postSessionStopped() {
+        Log.d(TAG, "session stopped");
         mMainHandler.post(new Runnable() {
             @Override
             public void run() {
@@ -728,6 +745,7 @@ public class Session {
     }
 
     private void postError(final int reason, final int streamType, final Exception e) {
+        Log.e(TAG, "error happened with reason of " + reason + ", with stream type of : " + getStreamName(streamType), e);
         mMainHandler.post(new Runnable() {
             @Override
             public void run() {
@@ -743,7 +761,7 @@ public class Session {
             @Override
             public void run() {
                 if (mCallback != null) {
-                    mCallback.onBitrareUpdate(bitrate);
+                    mCallback.onBitrateUpdate(bitrate);
                 }
             }
         });
@@ -761,19 +779,20 @@ public class Session {
         }
     };
 
-
     public boolean trackExists(int id) {
-        if (id == 0)
+        if (id == 0) {
             return mAudioStream != null;
-        else
+        } else {
             return mVideoStream != null;
+        }
     }
 
     public Stream getTrack(int id) {
-        if (id == 0)
+        if (id == 0) {
             return mAudioStream;
-        else
+        } else {
             return mVideoStream;
+        }
     }
 
 }

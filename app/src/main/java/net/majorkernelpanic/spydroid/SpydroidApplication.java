@@ -21,12 +21,21 @@
 package net.majorkernelpanic.spydroid;
 
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.os.IBinder;
+import android.os.MemoryFile;
+import android.os.ParcelFileDescriptor;
+import android.os.RemoteException;
 import android.preference.PreferenceManager;
+import android.util.Log;
+
+import com.adasplus.kylauncher.IAdasResultListener;
 
 import net.majorkernelpanic.onvif.DeviceBackBean;
 import net.majorkernelpanic.streaming.SessionBuilder;
@@ -34,6 +43,9 @@ import net.majorkernelpanic.streaming.video.VideoQuality;
 
 import org.acra.annotation.ReportsCrashes;
 
+import java.io.FileDescriptor;
+
+import static net.majorkernelpanic.spydroid.Utilities.getMemoryFile;
 import static org.acra.ReportField.ANDROID_VERSION;
 import static org.acra.ReportField.APP_VERSION_NAME;
 import static org.acra.ReportField.BRAND;
@@ -50,6 +62,12 @@ import static org.acra.ReportField.USER_CRASH_DATE;
 public class SpydroidApplication extends android.app.Application {
 
     public final static String TAG = "SpydroidApplication";
+
+    /**
+     * 是否是使用系统当中的ShareBuffer数据.
+     * 默认使用的是系统当中的Camera的数据.
+     */
+    public static boolean USE_SHARE_BUFFER_DATA = false;
 
     /**
      * Default quality of video streams.
@@ -101,6 +119,18 @@ public class SpydroidApplication extends android.app.Application {
         sApplication = this;
 
         super.onCreate();
+
+        bindAdasServiceIntent = new Intent();
+        bindAdasServiceIntent.setAction("com.adasplus.dfw");
+        bindAdasServiceIntent.setPackage("com.adasplus.kylauncher");
+
+        bindRemoteAdasService(new BindRemoteAdasServiceResultListener() {
+            @Override
+            public void onGetCameraFileResult(boolean success) {
+                Log.d(TAG, "get system share buffer memory file descriptor --> " + success);
+
+            }
+        });
 
         SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
 
@@ -178,4 +208,100 @@ public class SpydroidApplication extends android.app.Application {
         this.deviceBackBean = deviceBackBean;
     }
 
+    private AdasServiceConnection adasServiceConnection;
+    private Intent bindAdasServiceIntent;
+
+    private void bindRemoteAdasService(final BindRemoteAdasServiceResultListener bindResultListener) {
+        adasServiceConnection = new AdasServiceConnection(bindResultListener);
+        bindService(bindAdasServiceIntent, adasServiceConnection, BIND_AUTO_CREATE);
+    }
+
+    interface BindRemoteAdasServiceResultListener {
+        void onGetCameraFileResult(boolean success);
+    }
+
+    /**
+     * 前置摄像头的传输大小
+     */
+    public static final int FRONT_CAMERA_WIDTH = 640;
+    public static final int FRONT_CAMERA_HEIGHT = 480;
+
+    /**
+     * 后置摄像头的传输大小
+     */
+    public static final int BACK_CAMERA_WIDTH = 640;
+    public static final int BACK_CAMERA_HEIGHT = 360;
+
+    public static final int FRONT_CAMERA_FRAME_LEN = FRONT_CAMERA_WIDTH * FRONT_CAMERA_HEIGHT * 3 / 2;
+    public static final int BACK_CAMERA_FRAME_LEN = BACK_CAMERA_WIDTH * BACK_CAMERA_HEIGHT * 3 / 2;
+
+    private MemoryFile frontCameraMemFile, backCameraMemFile;
+
+    private class AdasServiceConnection implements ServiceConnection {
+        private BindRemoteAdasServiceResultListener bindRemoteAdasServiceResultListener;
+
+        AdasServiceConnection(BindRemoteAdasServiceResultListener bindRemoteAdasServiceResultListener) {
+            this.bindRemoteAdasServiceResultListener = bindRemoteAdasServiceResultListener;
+        }
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            Log.v(TAG, "connect to the IAdasResultListener service success");
+            IAdasResultListener adasResultService = IAdasResultListener.Stub.asInterface(service);
+
+            ParcelFileDescriptor backCameraInfo = null;
+            try {
+                backCameraInfo = adasResultService.getBackFileDescriptor();
+            } catch (RemoteException e) {
+                Log.e(TAG, "exception happened while get the back camera file descriptor ", e);
+            }
+
+            if (backCameraInfo != null) {
+                FileDescriptor backCameraFileDescriptor = backCameraInfo.getFileDescriptor();
+                backCameraMemFile = getMemoryFile(backCameraFileDescriptor, BACK_CAMERA_FRAME_LEN + 1);
+                if (backCameraMemFile == null) {
+                    Log.e(TAG, "fail to get the back camera memory file");
+                }
+            } else {
+                Log.w(TAG, "fail to get the BACK CAMERA info");
+            }
+
+            ParcelFileDescriptor frontCameraInfo = null;
+            try {
+                frontCameraInfo = adasResultService.getFrontFileDescriptor();
+            } catch (RemoteException e) {
+                Log.e(TAG, "exception happened while get the front camera file descriptor", e);
+            }
+
+            // 前置摄像头用于完成Adas功能
+            if (frontCameraInfo != null) {
+                FileDescriptor frontCameraFileDescriptor = frontCameraInfo.getFileDescriptor();
+                frontCameraMemFile = getMemoryFile(frontCameraFileDescriptor, FRONT_CAMERA_FRAME_LEN + 1);
+                if (frontCameraMemFile == null) {
+                    Log.e(TAG, "fail to get the FRONT CAMERA memory file");
+                }
+            } else {
+                Log.w(TAG, "fail to get the front camera data");
+            }
+
+            if (frontCameraMemFile != null && backCameraMemFile != null) {
+                this.bindRemoteAdasServiceResultListener.onGetCameraFileResult(true);
+            } else {
+                this.bindRemoteAdasServiceResultListener.onGetCameraFileResult(false);
+            }
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.d(TAG, "lose the connection to remote IAdasResultListener service");
+        }
+    }
+
+    public MemoryFile getFrontCameraMemFile() {
+        return frontCameraMemFile;
+    }
+
+    public MemoryFile getBackCameraMemFile() {
+        return backCameraMemFile;
+    }
 }

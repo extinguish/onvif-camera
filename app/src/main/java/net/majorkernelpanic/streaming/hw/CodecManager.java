@@ -72,8 +72,8 @@ public class CodecManager {
             if (!codecInfo.isEncoder()) continue;
 
             String[] types = codecInfo.getSupportedTypes();
-            for (int i = 0; i < types.length; i++) {
-                if (types[i].equalsIgnoreCase(mimeType)) {
+            for (String type : types) {
+                if (type.equalsIgnoreCase(mimeType)) {
                     try {
                         MediaCodecInfo.CodecCapabilities capabilities = codecInfo.getCapabilitiesForType(mimeType);
                         Set<Integer> formats = new HashSet<>();
@@ -82,8 +82,8 @@ public class CodecManager {
                         for (int k = 0; k < capabilities.colorFormats.length; k++) {
                             int format = capabilities.colorFormats[k];
 
-                            for (int l = 0; l < SUPPORTED_COLOR_FORMATS.length; l++) {
-                                if (format == SUPPORTED_COLOR_FORMATS[l]) {
+                            for (int SUPPORTED_COLOR_FORMAT : SUPPORTED_COLOR_FORMATS) {
+                                if (format == SUPPORTED_COLOR_FORMAT) {
                                     formats.add(format);
                                 }
                             }
@@ -117,8 +117,8 @@ public class CodecManager {
             if (codecInfo.isEncoder()) continue;
 
             String[] types = codecInfo.getSupportedTypes();
-            for (int i = 0; i < types.length; i++) {
-                if (types[i].equalsIgnoreCase(mimeType)) {
+            for (String type : types) {
+                if (type.equalsIgnoreCase(mimeType)) {
                     try {
                         MediaCodecInfo.CodecCapabilities capabilities = codecInfo.getCapabilitiesForType(mimeType);
                         Set<Integer> formats = new HashSet<Integer>();
@@ -127,14 +127,14 @@ public class CodecManager {
                         for (int k = 0; k < capabilities.colorFormats.length; k++) {
                             int format = capabilities.colorFormats[k];
 
-                            for (int l = 0; l < SUPPORTED_COLOR_FORMATS.length; l++) {
-                                if (format == SUPPORTED_COLOR_FORMATS[l]) {
+                            for (int SUPPORTED_COLOR_FORMAT : SUPPORTED_COLOR_FORMATS) {
+                                if (format == SUPPORTED_COLOR_FORMAT) {
                                     formats.add(format);
                                 }
                             }
                         }
 
-                        Codec codec = new Codec(codecInfo.getName(), (Integer[]) formats.toArray(new Integer[formats.size()]));
+                        Codec codec = new Codec(codecInfo.getName(), formats.toArray(new Integer[formats.size()]));
                         decoders.add(codec);
                     } catch (Exception e) {
                         Log.wtf(TAG, e);
@@ -143,7 +143,7 @@ public class CodecManager {
             }
         }
 
-        sDecoders = (Codec[]) decoders.toArray(new Codec[decoders.size()]);
+        sDecoders = decoders.toArray(new Codec[decoders.size()]);
 
         // We will use the decoder from google first, it seems to work properly on many phones
         for (int i = 0; i < sDecoders.length; i++) {
@@ -153,9 +153,7 @@ public class CodecManager {
                 sDecoders[i] = codec;
             }
         }
-
         return sDecoders;
     }
-
 }
 

@@ -69,7 +69,7 @@ public abstract class MediaStream implements Stream {
      */
     protected AbstractPacketizer mPacketizer = null;
 
-    protected static byte sSuggestedMode = MODE_MEDIARECORDER_API;
+    protected static byte sSuggestedMode;
     protected byte mMode, mRequestedMode;
 
     protected boolean mStreaming = false, mConfigured = false;
@@ -83,8 +83,9 @@ public abstract class MediaStream implements Stream {
     protected MediaCodec mMediaCodec;
 
     static {
-        // We determine wether or not the MediaCodec API should be used
+        // We determine whether or not the MediaCodec API should be used
         try {
+            // 优先使用MediaCodeC(部分原因应该是MediaCodeC使用的是硬编码)
             Class.forName("android.media.MediaCodec");
             // Will be set to MODE_MEDIACODEC_API at some point...
             sSuggestedMode = MODE_MEDIACODEC_API;
@@ -220,6 +221,7 @@ public abstract class MediaStream implements Stream {
      * for a {@link VideoStream} and {@link AudioStream#setAudioQuality(net.majorkernelpanic.streaming.audio.AudioQuality)}
      * for a {@link AudioStream}.
      */
+    @Override
     public synchronized void configure() throws IllegalStateException, IOException {
         if (mStreaming) throw new IllegalStateException("Can't be called while streaming.");
         mMode = mRequestedMode;
@@ -229,8 +231,8 @@ public abstract class MediaStream implements Stream {
     /**
      * Starts the stream.
      */
+    @Override
     public synchronized void start() throws IllegalStateException, IOException {
-
         if (mDestination == null)
             throw new IllegalStateException("No destination ip address set for the stream !");
 
@@ -240,8 +242,10 @@ public abstract class MediaStream implements Stream {
         mPacketizer.setTimeToLive(mTTL);
 
         if (mMode != MODE_MEDIARECORDER_API) {
+            Log.v(TAG, "Starts Streaming encode with MediaCodeC");
             encodeWithMediaCodec();
         } else {
+            Log.v(TAG, "Starts Streaming encode with MediaRecorder");
             encodeWithMediaRecorder();
         }
     }
@@ -266,7 +270,7 @@ public abstract class MediaStream implements Stream {
                     mMediaCodec = null;
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.e(TAG, "Exception happened while we stop the stream", e);
             }
             mStreaming = false;
         }
@@ -294,7 +298,6 @@ public abstract class MediaStream implements Stream {
     }
 
     protected void createSockets() throws IOException {
-
         final String LOCAL_ADDR = "net.majorkernelpanic.streaming-";
 
         for (int i = 0; i < 10; i++) {
@@ -302,7 +305,8 @@ public abstract class MediaStream implements Stream {
                 mSocketId = new Random().nextInt();
                 mLss = new LocalServerSocket(LOCAL_ADDR + mSocketId);
                 break;
-            } catch (IOException e1) {
+            } catch (IOException e) {
+                Log.e(TAG, "IOException happened while create the socket", e);
             }
         }
 
@@ -318,21 +322,20 @@ public abstract class MediaStream implements Stream {
         try {
             mReceiver.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "fail to close the receiver", e);
         }
         try {
             mSender.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "fail to close the sender", e);
         }
         try {
             mLss.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "fail to close the LocalServerSocket", e);
         }
         mLss = null;
         mSender = null;
         mReceiver = null;
     }
-
 }

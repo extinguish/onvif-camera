@@ -33,17 +33,17 @@ import android.util.Log;
 /**
  * Parse an mp4 file.
  * An mp4 file contains a tree where each node has a name and a size.
- * This class is used by H264Stream.java to determine the SPS and PPS parameters of a short video recorded by the phone.
+ * This class is used by H264Stream.java to determine the SPS and PPS parameters
+ * of a short video recorded by the phone.
  */
 class MP4Parser {
-
     private static final String TAG = "MP4Parser";
 
     private HashMap<String, Long> boxes = new HashMap<String, Long>();
     private final RandomAccessFile file;
     private long pos = 0;
 
-    public MP4Parser(final String path) throws IOException, FileNotFoundException {
+    public MP4Parser(final String path) throws IOException {
         this.file = new RandomAccessFile(new File(path), "r");
     }
 
@@ -71,7 +71,8 @@ class MP4Parser {
     public void close() {
         try {
             file.close();
-        } catch (IOException ignore) {
+        } catch (IOException e) {
+            Log.e(TAG, "Exception happened while close the file", e);
         }
     }
 
@@ -92,19 +93,16 @@ class MP4Parser {
 
     private void parse(String path, long len) throws IOException {
         byte[] buffer = new byte[8];
-        String name = "";
-        long sum = 0, newlen = 0;
+        String name;
+        long sum = 0, newlen;
         if (!path.equals(""))
             boxes.put(path, pos - 8);
 
-
         while (sum < len) {
-
             file.read(buffer, 0, 8);
             sum += 8;
             pos += 8;
             if (validBoxName(buffer)) {
-
                 ByteBuffer byteBuffer = ByteBuffer.wrap(buffer, 0, 4);
                 newlen = byteBuffer.getInt() - 8;
 
@@ -115,7 +113,6 @@ class MP4Parser {
                 Log.d(TAG, "Atom -> name: " + name + " newlen: " + newlen + " pos: " + pos);
                 sum += newlen;
                 parse(path + '/' + name, newlen);
-
             } else {
                 if (len < 8) {
                     file.seek(file.getFilePointer() - 8 + len);
@@ -150,7 +147,6 @@ class MP4Parser {
         }
         return s.toString();
     }
-
 }
 
 class StsdBox {

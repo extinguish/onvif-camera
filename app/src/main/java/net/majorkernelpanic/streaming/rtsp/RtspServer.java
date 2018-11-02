@@ -60,6 +60,11 @@ import android.util.Log;
  * 因此SpyDroid-IpCamera需要实现一个自己内部的推流服务器，也就是这里的
  * RtspServer.
  * <p>
+ * RtspServer本身只是负责视频控制协议数据的传输，视频流本身通过{@link android.net.rtp.RtpStream}
+ * 来传输.
+ * 关于Rtsp协议本身的讲解，可也参考项目根目录当中的RTSP_n_RTP_simple_intro.md文档
+ * 当中的解释.
+ * <p>
  * Implementation of a subset of the RTSP protocol (RFC 2326).
  * <p>
  * It allows remote control of an android device cameras & microphone.
@@ -74,7 +79,7 @@ public class RtspServer extends Service {
     /**
      * The server name that will appear in responses.
      */
-    public static String SERVER_NAME = "MajorKernelPanic RTSP Server";
+    public static String SERVER_NAME = "IPCamera RTSP Server";
 
     /**
      * Port used by default.
@@ -122,7 +127,6 @@ public class RtspServer extends Service {
     private boolean mRestart = false;
     private final LinkedList<CallbackListener> mListeners = new LinkedList<CallbackListener>();
 
-
     public RtspServer() {
     }
 
@@ -130,7 +134,6 @@ public class RtspServer extends Service {
      * Be careful: those callbacks won't necessarily be called from the ui thread !
      */
     public interface CallbackListener {
-
         /**
          * Called when an error occurs.
          */
@@ -140,7 +143,6 @@ public class RtspServer extends Service {
          * Called when streaming starts/stops.
          */
         void onMessage(RtspServer server, int message);
-
     }
 
     /**
@@ -152,7 +154,9 @@ public class RtspServer extends Service {
         synchronized (mListeners) {
             if (mListeners.size() > 0) {
                 for (CallbackListener cl : mListeners) {
-                    if (cl == listener) return;
+                    if (cl == listener) {
+                        return;
+                    }
                 }
             }
             mListeners.add(listener);
@@ -198,6 +202,7 @@ public class RtspServer extends Service {
             try {
                 mListenerThread = new RequestListener();
             } catch (Exception e) {
+                Log.e(TAG, "Exception happened while we start the RTSP Server", e);
                 mListenerThread = null;
             }
         }
@@ -261,7 +266,6 @@ public class RtspServer extends Service {
 
     @Override
     public void onCreate() {
-
         // Let's restore the state of the service
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         mPort = Integer.parseInt(mSharedPreferences.getString(KEY_PORT, String.valueOf(mPort)));
@@ -337,7 +341,7 @@ public class RtspServer extends Service {
      * @param client The socket associated to the client
      * @return A proper session
      */
-    protected Session handleRequest(String uri, Socket client) throws IllegalStateException, IOException {
+    protected Session handleRequest(String uri, Socket client) throws IllegalStateException {
         Session session = UriParser.parse(uri);
         session.setOrigin(client.getLocalAddress().getHostAddress());
         if (session.getDestination() == null) {
@@ -367,6 +371,7 @@ public class RtspServer extends Service {
                 try {
                     new WorkerThread(mServer.accept()).start();
                 } catch (SocketException e) {
+                    Log.e(TAG, "Socket Exception happened", e);
                     break;
                 } catch (IOException e) {
                     Log.e(TAG, e.getMessage());
@@ -379,13 +384,14 @@ public class RtspServer extends Service {
             try {
                 mServer.close();
             } catch (IOException e) {
+                Log.e(TAG, "IOException happened while we kill the RTSP Server", e);
             }
             try {
                 this.join();
-            } catch (InterruptedException ignore) {
+            } catch (InterruptedException e) {
+                Log.e(TAG, "InterruptedException happened", e);
             }
         }
-
     }
 
     // One thread per client
@@ -421,6 +427,7 @@ public class RtspServer extends Service {
                     // Client has left
                     break;
                 } catch (Exception e) {
+                    Log.e(TAG, "Exception happened while we parse the client request", e);
                     // We don't understand the request :/
                     response = new Response();
                     response.status = Response.STATUS_BAD_REQUEST;
@@ -429,7 +436,13 @@ public class RtspServer extends Service {
                 // Do something accordingly like starting the streams, sending a session description
                 if (request != null) {
                     try {
+                        // 处理客户端发起的请求
+                        // 我们在processRequest方法之内会进行正式的处理工作　
+                        // 例如打开视频流，视频流传输，视频流关闭等操作
+                        // processRequest会同Session进行互操作.
                         response = processRequest(request);
+                        // 请求处理结束，此时将处理得到的response
+                        // 返回到client当中
                     } catch (Exception e) {
                         // This alerts the main thread that something has gone wrong in this thread
                         postError(e, ERROR_START_FAILED);
@@ -448,10 +461,9 @@ public class RtspServer extends Service {
                     }
                     response.send(mOutput);
                 } catch (IOException e) {
-                    Log.e(TAG, "Response was not sent properly");
+                    Log.e(TAG, "Response was not sent properly", e);
                     break;
                 }
-
             }
 
             // Streaming stops when client disconnects
@@ -471,14 +483,14 @@ public class RtspServer extends Service {
             Log.i(TAG, "Client disconnected");
         }
 
-        public Response processRequest(Request request) throws IllegalStateException, IOException {
+        Response processRequest(Request request) throws IllegalStateException, IOException {
             Response response = new Response(request);
 
             /* ********************************************************************************** */
             /* ********************************* Method DESCRIBE ******************************** */
             /* ********************************************************************************** */
             if (request.method.equalsIgnoreCase("DESCRIBE")) {
-
+                Log.v(TAG, "client request method are --> DESCRIBE");
                 // Parse the requested URI and configure the session
                 mSession = handleRequest(request.uri, mClient);
                 mSessions.put(mSession, null);
@@ -500,6 +512,7 @@ public class RtspServer extends Service {
             /* ********************************* Method OPTIONS ********************************* */
             /* ********************************************************************************** */
             else if (request.method.equalsIgnoreCase("OPTIONS")) {
+                Log.v(TAG, "client request method are --> OPTIONS");
                 response.status = Response.STATUS_OK;
                 response.attributes = "Public: DESCRIBE,SETUP,TEARDOWN,PLAY,PAUSE\r\n";
                 response.status = Response.STATUS_OK;
@@ -509,6 +522,7 @@ public class RtspServer extends Service {
             /* ********************************** Method SETUP ********************************** */
             /* ********************************************************************************** */
             else if (request.method.equalsIgnoreCase("SETUP")) {
+                Log.v(TAG, "client request method are --> SETUP");
                 Pattern p;
                 Matcher m;
                 int p2, p1, ssrc, trackId, src[];
@@ -548,6 +562,11 @@ public class RtspServer extends Service {
                 mSession.getTrack(trackId).setDestinationPorts(p1, p2);
 
                 boolean streaming = isStreaming();
+
+                // 开始streaming操作
+                // 但是此时的streaming操作主要是为了用于RTP协议用于确定底层的视频传输操作具体是使用
+                // TCP还是UDP当做视频传输的轨道(RTP本身是位于传输层和RTSP协议之间)
+                // 具体可参考项目根目录当中的RTSP_n_RTP_simple_intro.md文档
                 mSession.syncStart(trackId);
                 if (!streaming && isStreaming()) {
                     postMessage(MESSAGE_STREAMING_STARTED);
@@ -571,12 +590,20 @@ public class RtspServer extends Service {
             /* ********************************** Method PLAY *********************************** */
             /* ********************************************************************************** */
             else if (request.method.equalsIgnoreCase("PLAY")) {
+                Log.v(TAG, "the client request method --> PLAY");
                 String requestAttributes = "RTP-Info: ";
-                if (mSession.trackExists(0))
-                    requestAttributes += "url=rtsp://" + mClient.getLocalAddress().getHostAddress() + ":" + mClient.getLocalPort() + "/trackID=" + 0 + ";seq=0,";
-                if (mSession.trackExists(1))
-                    requestAttributes += "url=rtsp://" + mClient.getLocalAddress().getHostAddress() + ":" + mClient.getLocalPort() + "/trackID=" + 1 + ";seq=0,";
-                requestAttributes = requestAttributes.substring(0, requestAttributes.length() - 1) + "\r\nSession: 1185d20035702ca\r\n";
+                if (mSession.trackExists(0)) { // 音频轨道是否存在
+                    requestAttributes += "url=rtsp://" +
+                            mClient.getLocalAddress().getHostAddress() + ":" +
+                            mClient.getLocalPort() + "/trackID=" + 0 + ";seq=0,";
+                }
+                if (mSession.trackExists(1)) { // 视频轨道是否存在
+                    requestAttributes += "url=rtsp://" +
+                            mClient.getLocalAddress().getHostAddress() + ":" +
+                            mClient.getLocalPort() + "/trackID=" + 1 + ";seq=0,";
+                }
+                requestAttributes = requestAttributes.substring(0, requestAttributes.length() - 1) +
+                        "\r\nSession: 1185d20035702ca\r\n";
 
                 response.attributes = requestAttributes;
 
@@ -588,6 +615,7 @@ public class RtspServer extends Service {
             /* ********************************** Method PAUSE ********************************** */
             /* ********************************************************************************** */
             else if (request.method.equalsIgnoreCase("PAUSE")) {
+                Log.v(TAG, "the client request method --> PAUSE");
                 response.status = Response.STATUS_OK;
             }
 
@@ -595,6 +623,7 @@ public class RtspServer extends Service {
             /* ********************************* Method TEARDOWN ******************************** */
             /* ********************************************************************************** */
             else if (request.method.equalsIgnoreCase("TEARDOWN")) {
+                Log.v(TAG, "the client request method --> TEARDOWN");
                 response.status = Response.STATUS_OK;
             }
 
@@ -628,7 +657,9 @@ public class RtspServer extends Service {
             Matcher matcher;
 
             // Parsing request method & uri
-            if ((line = input.readLine()) == null) throw new SocketException("Client disconnected");
+            if ((line = input.readLine()) == null) {
+                throw new SocketException("Client disconnected");
+            }
             matcher = regexMethod.matcher(line);
             matcher.find();
             request.method = matcher.group(1);
@@ -640,7 +671,9 @@ public class RtspServer extends Service {
                 matcher.find();
                 request.headers.put(matcher.group(1).toLowerCase(Locale.US), matcher.group(2));
             }
-            if (line == null) throw new SocketException("Client disconnected");
+            if (line == null) {
+                throw new SocketException("Client disconnected");
+            }
 
             // It's not an error, it's just easier to follow what's happening in logcat with the request in red
             Log.e(TAG, request.method + " " + request.uri);
@@ -650,7 +683,6 @@ public class RtspServer extends Service {
     }
 
     static class Response {
-
         // Status code definitions
         public static final String STATUS_OK = "200 OK";
         public static final String STATUS_BAD_REQUEST = "400 Bad Request";
@@ -668,7 +700,7 @@ public class RtspServer extends Service {
         }
 
         public Response() {
-            // Be carefull if you modify the send() method because request might be null !
+            // Be careful if you modify the send() method because request might be null !
             mRequest = null;
         }
 
@@ -694,5 +726,4 @@ public class RtspServer extends Service {
             output.write(response.getBytes());
         }
     }
-
 }

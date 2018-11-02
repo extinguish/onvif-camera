@@ -21,12 +21,20 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.os.MemoryFile;
 import android.telephony.TelephonyManager;
 import android.util.Base64;
 import android.util.Log;
 
 import net.majorkernelpanic.onvif.DeviceStaticInfo;
 
+import org.apache.http.NameValuePair;
+
+import java.io.FileDescriptor;
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -35,6 +43,7 @@ import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 import java.util.regex.Matcher;
@@ -247,4 +256,64 @@ public class Utilities {
                 packet.getSocketAddress().toString(),
                 packet.getLength());
     }
+
+    /**
+     * 以下的实现当中，采用的是API-21当中的MemoryFile.
+     * 在API-27的版本当中，MemoryFile已经是简单的SharedMemory的包装了，
+     * 之后添加对API-27的兼容适配.
+     * <p>
+     * 在API-21当中，MemoryFile还是通过直接同Native内存交互来获取到文件内容;
+     * 但是在API-27当中，MemoryFile已经修改成通过{@link java.nio.ByteBuffer}来同
+     * Direct Memory来进行交互.
+     */
+    public static MemoryFile getMemoryFile(FileDescriptor descriptor, int length) {
+        try {
+            MemoryFile memoryFile = new MemoryFile("adas_stream", 1);
+            memoryFile.close();
+
+            Field mFDField = memoryFile.getClass().getDeclaredField("mFD");
+            mFDField.setAccessible(true);
+            mFDField.set(memoryFile, descriptor);
+
+            // 理论上我们可以直接通过MemoryFile(name, fileLength);来设置mLength的值
+            // 但是这里通过反射设置MemoryFile的大小主要是考虑到不想在创建MemoryFile初始时，就
+            // 创建一个很大的文件，而是在初始时之后创建一个很小的文件，然后在之后再动态的设置大小.
+            Field mLengthField = memoryFile.getClass().getDeclaredField("mLength");
+            mLengthField.setAccessible(true);
+            mLengthField.set(memoryFile, length);
+
+            @SuppressLint("PrivateApi")
+            Method mmapMethod = memoryFile.getClass().getDeclaredMethod("native_mmap",
+                    FileDescriptor.class, int.class, int.class);
+            mmapMethod.setAccessible(true);
+            long address = (long) mmapMethod.invoke(memoryFile, descriptor, length, 0x01 | 0x02);
+            Field mAddressField = memoryFile.getClass().getDeclaredField("mAddress");
+            mAddressField.setAccessible(true);
+            mAddressField.set(memoryFile, address);
+
+            return memoryFile;
+        } catch (IOException e) {
+            Log.e(TAG, "getMemoryFile: IO exception happened ", e);
+        } catch (NoSuchFieldException e) {
+            Log.d(TAG, "getMemoryFile: Reflection error, do not find field", e);
+        } catch (IllegalAccessException e) {
+            Log.d(TAG, "getMemoryFile: Fail to access field", e);
+        } catch (NoSuchMethodException e) {
+            Log.d(TAG, "getMemoryFile: fail to find specified method", e);
+        } catch (InvocationTargetException e) {
+            Log.d(TAG, "getMemoryFile: fail to invoke target", e);
+        }
+        return null;
+    }
+
+    public static void dumpParams(List<NameValuePair> nameValuePairList) {
+        StringBuilder paramContent = new StringBuilder();
+        for (NameValuePair pair : nameValuePairList) {
+            paramContent.append("name = ").append(pair.getName())
+                    .append(", value = ").append(pair.getValue());
+        }
+        Log.e(TAG, paramContent.toString());
+    }
+
+
 }

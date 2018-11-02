@@ -26,34 +26,33 @@ import android.annotation.SuppressLint;
 import android.util.Log;
 
 /**
- *
- *   RFC 3984.
- *
- *   H.264 streaming over RTP.
- *
- *   Must be fed with an InputStream containing H.264 NAL units preceded by their length (4 bytes).
- *   The stream must start with mpeg4 or 3gpp header, it will be skipped.
- *
+ * RFC 3984.
+ * <p>
+ * H.264 streaming over RTP.
+ * <p>
+ * Must be fed with an InputStream containing H.264 NAL units preceded by their length (4 bytes).
+ * The stream must start with mpeg4 or 3gpp header, it will be skipped.
+ * <p>
+ * 用于将H264数据流数据封装成H264格式.
  */
 public class H264Packetizer extends AbstractPacketizer implements Runnable {
-
-	public final static String TAG = "H264Packetizer";
+    public final static String TAG = "H264Packetizer";
 
     private Thread t = null;
     private int naluLength = 0;
-    private long delay = 0, oldtime = 0;
+    private long delay = 0, oldTime = 0;
     private Statistics stats = new Statistics();
     private byte[] sps = null, pps = null;
     byte[] header = new byte[5];
     private int count = 0;
     private int streamType = 1;
 
-
     public H264Packetizer() {
         super();
         socket.setClockFrequency(90000);
     }
 
+    @Override
     public void start() {
         if (t == null) {
             t = new Thread(this);
@@ -61,16 +60,19 @@ public class H264Packetizer extends AbstractPacketizer implements Runnable {
         }
     }
 
+    @Override
     public void stop() {
         if (t != null) {
             try {
                 is.close();
             } catch (IOException e) {
+                Log.e(TAG, "IOException happened", e);
             }
             t.interrupt();
             try {
                 t.join();
             } catch (InterruptedException e) {
+                Log.e(TAG, "Thread interrupted exception happened", e);
             }
             t = null;
         }
@@ -81,30 +83,33 @@ public class H264Packetizer extends AbstractPacketizer implements Runnable {
         this.sps = sps;
     }
 
+    @Override
     public void run() {
-        long duration = 0, delta2 = 0;
+        long duration, delta2 = 0;
         Log.d(TAG, "H264 packetizer started !");
         stats.reset();
         count = 0;
 
+        // 如果InputStream本身是来自于MediaCodecInputStream(即来自于MediaCodec当中取出的数据)
+        // StreamType为1(这也是默认的流类型)
         if (is instanceof MediaCodecInputStream) {
             streamType = 1;
             socket.setCacheSize(0);
         } else {
+            // 此时的InputStream就是普通的InputStream
             streamType = 0;
             socket.setCacheSize(400);
         }
 
         try {
             while (!Thread.interrupted()) {
-
-                oldtime = System.nanoTime();
+                oldTime = System.nanoTime();
                 // We read a NAL units from the input stream and we send them
                 send();
                 // We measure how long it took to receive NAL units from the phone
-                duration = System.nanoTime() - oldtime;
+                duration = System.nanoTime() - oldTime;
 
-                // Every 3 secondes, we send two packets containing NALU type 7 (sps) and 8 (pps)
+                // Every 3 seconds, we send two packets containing NALU type 7 (sps) and 8 (pps)
                 // Those should allow the H264 stream to be decoded even if no SDP was sent to the decoder.
                 delta2 += duration / 1000000;
                 if (delta2 > 3000) {
@@ -129,14 +134,13 @@ public class H264Packetizer extends AbstractPacketizer implements Runnable {
                 // Computes the average duration of a NAL unit
                 delay = stats.average();
                 //Log.d(TAG,"duration: "+duration/1000000+" delay: "+delay/1000000);
-
             }
         } catch (IOException e) {
+            Log.e(TAG, "IOException happened", e);
         } catch (InterruptedException e) {
+            Log.e(TAG, "Thread Interrupted exception happened", e);
         }
-
         Log.d(TAG, "H264 packetizer stopped !");
-
     }
 
     /**
@@ -145,28 +149,29 @@ public class H264Packetizer extends AbstractPacketizer implements Runnable {
      */
     @SuppressLint("NewApi")
     private void send() throws IOException, InterruptedException {
-        int sum = 1, len = 0, type;
+        int sum = 1, len, type;
 
         if (streamType == 0) {
-            // NAL units are preceeded by their length, we parse the length
+            // NAL units are proceeded by their length, we parse the length
             fill(header, 0, 5);
             ts += delay;
             naluLength = header[3] & 0xFF | (header[2] & 0xFF) << 8 | (header[1] & 0xFF) << 16 | (header[0] & 0xFF) << 24;
             if (naluLength > 100000 || naluLength < 0) resync();
         } else if (streamType == 1) {
-            // NAL units are preceeded with 0x00000001
+            // 此时是被MediaCodec处理过的视频流数据
+            // NAL units are proceeded with 0x00000001
             fill(header, 0, 5);
             ts = ((MediaCodecInputStream) is).getLastBufferInfo().presentationTimeUs * 1000L;
             //ts += delay;
             naluLength = is.available() + 1;
             if (!(header[0] == 0 && header[1] == 0 && header[2] == 0)) {
-                // Turns out, the NAL units are not preceeded with 0x00000001
-                Log.e(TAG, "NAL units are not preceeded by 0x00000001");
+                // Turns out, the NAL units are not proceeded with 0x00000001
+                Log.e(TAG, "NAL units are not proceeded by 0x00000001");
                 streamType = 2;
                 return;
             }
         } else {
-            // Nothing preceededs the NAL units
+            // Nothing proceeded the NAL units
             fill(header, 0, 1);
             header[4] = header[0];
             ts = ((MediaCodecInputStream) is).getLastBufferInfo().presentationTimeUs * 1000L;
@@ -191,7 +196,7 @@ public class H264Packetizer extends AbstractPacketizer implements Runnable {
         //Log.d(TAG,"- Nal unit length: " + naluLength + " delay: "+delay/1000000+" type: "+type);
 
         // Small NAL unit => Single NAL unit
-        if (naluLength <= MAXPACKETSIZE - rtphl - 2) {
+        if (naluLength <= MAX_PACKET_SIZE - rtphl - 2) {
             buffer = socket.requestBuffer();
             buffer[rtphl] = header[4];
             len = fill(buffer, rtphl + 1, naluLength - 1);
@@ -202,7 +207,6 @@ public class H264Packetizer extends AbstractPacketizer implements Runnable {
         }
         // Large NAL unit => Split nal unit
         else {
-
             // Set FU-A header
             header[1] = (byte) (header[4] & 0x1F);  // FU header type
             header[1] += 0x80; // Start bit
@@ -215,7 +219,7 @@ public class H264Packetizer extends AbstractPacketizer implements Runnable {
                 buffer[rtphl] = header[0];
                 buffer[rtphl + 1] = header[1];
                 socket.updateTimestamp(ts);
-                if ((len = fill(buffer, rtphl + 2, naluLength - sum > MAXPACKETSIZE - rtphl - 2 ? MAXPACKETSIZE - rtphl - 2 : naluLength - sum)) < 0)
+                if ((len = fill(buffer, rtphl + 2, naluLength - sum > MAX_PACKET_SIZE - rtphl - 2 ? MAX_PACKET_SIZE - rtphl - 2 : naluLength - sum)) < 0)
                     return;
                 sum += len;
                 // Last packet before next NAL
@@ -227,7 +231,7 @@ public class H264Packetizer extends AbstractPacketizer implements Runnable {
                 super.send(len + rtphl + 2);
                 // Switch start bit
                 header[1] = (byte) (header[1] & 0x7F);
-                //Log.d(TAG,"----- FU-A unit, sum:"+sum);
+                // Log.d(TAG,"----- FU-A unit, sum:"+sum);
             }
         }
     }
@@ -249,7 +253,6 @@ public class H264Packetizer extends AbstractPacketizer implements Runnable {
         Log.e(TAG, "Packetizer out of sync ! Let's try to fix that...(NAL length: " + naluLength + ")");
 
         while (true) {
-
             header[0] = header[1];
             header[1] = header[2];
             header[2] = header[3];
@@ -261,7 +264,7 @@ public class H264Packetizer extends AbstractPacketizer implements Runnable {
             if (type == 5 || type == 1) {
                 naluLength = header[3] & 0xFF | (header[2] & 0xFF) << 8 | (header[1] & 0xFF) << 16 | (header[0] & 0xFF) << 24;
                 if (naluLength > 0 && naluLength < 100000) {
-                    oldtime = System.nanoTime();
+                    oldTime = System.nanoTime();
                     Log.e(TAG, "A NAL unit may have been found in the bit stream !");
                     break;
                 }

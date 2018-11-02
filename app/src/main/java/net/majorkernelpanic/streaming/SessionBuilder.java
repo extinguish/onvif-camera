@@ -167,7 +167,6 @@ public class SessionBuilder {
         }
 
         return session;
-
     }
 
     /**

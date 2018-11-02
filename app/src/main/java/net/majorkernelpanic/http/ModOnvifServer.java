@@ -8,6 +8,7 @@ import android.preference.PreferenceManager;
 import android.util.Log;
 
 import net.majorkernelpanic.spydroid.Utilities;
+import net.majorkernelpanic.streaming.video.VideoQuality;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpEntityEnclosingRequest;
@@ -111,7 +112,6 @@ public class ModOnvifServer implements HttpRequestHandler {
                 body = new InputStreamEntity(servicesResponseInputStream, responseContentByteArr.length);
             } else if (requestContent.contains("GetDeviceInformation")) {
                 Log.d(TAG, "is GetDeviceInformation interface");
-
                 String getDevInfoResponse = constructOnvifDevInfoResponse(DEV_MANUFACTURE, DEV_MODEL,
                         DEV_FIRMWARE_VERSION, DEV_SERIAL_NUM, Utilities.getDevId(mContext));
                 byte[] responseContentByteArr = getDevInfoResponse.getBytes("UTF-8");
@@ -119,7 +119,10 @@ public class ModOnvifServer implements HttpRequestHandler {
                 body = new InputStreamEntity(devInfoResponseInputStream, responseContentByteArr.length);
             } else if (requestContent.contains("GetProfiles")) {
                 Log.d(TAG, "is GetProfiles interface");
-                String getProfilesResponse = constructOnvifGetProfilesResponse();
+                final int videoResWidth = VideoQuality.VIDEO_RES_X;
+                final int videoResHeight = VideoQuality.VIDEO_RES_Y;
+                final int videoBitRate = VideoQuality.VIDEO_BITRATE;
+                String getProfilesResponse = constructOnvifGetProfilesResponse(videoResWidth, videoResHeight, videoBitRate);
                 byte[] responseContentByteArr = getProfilesResponse.getBytes("UTF-8");
                 InputStream profileResponseInputStream = new ByteArrayInputStream(responseContentByteArr);
                 body = new InputStreamEntity(profileResponseInputStream, responseContentByteArr.length);
@@ -335,7 +338,9 @@ public class ModOnvifServer implements HttpRequestHandler {
         return response;
     }
 
-    private String constructOnvifGetProfilesResponse() {
+    private String constructOnvifGetProfilesResponse(final int videoWidth, final int videoHeight, final int bitRate) {
+        Log.d(TAG, String.format("the profile : video width : %s, video height : %s, video bitrate : %s", videoWidth,
+                videoHeight, bitRate));
         // TODO: 这里的信息需要更加准确的控制
         // 关于分辨率的信息，应该从RtspServer当中动态获取
         String response = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
@@ -353,8 +358,8 @@ public class ModOnvifServer implements HttpRequestHandler {
                 "                    <tt:UseCount>1</tt:UseCount>\n" +
                 "                    <tt:SourceToken>VideoSource0</tt:SourceToken>\n" +
                 "                    <tt:Bounds\n" +
-                "                        height=\"1080\"\n" +
-                "                        width=\"1920\"\n" +
+                "                        height=\"" + videoHeight + "\"\n" +
+                "                        width=\"" + videoWidth + "\"\n" +
                 "                        x=\"0\"\n" +
                 "                        y=\"0\" />\n" +
                 "                </tt:VideoSourceConfiguration>\n" +
@@ -363,14 +368,14 @@ public class ModOnvifServer implements HttpRequestHandler {
                 "                    <tt:UseCount>3683892</tt:UseCount>\n" +
                 "                    <tt:Encoding>H264</tt:Encoding>\n" +
                 "                    <tt:Resolution>\n" +
-                "                        <tt:Width>1920</tt:Width>\n" +
-                "                        <tt:Height>1080</tt:Height>\n" +
+                "                        <tt:Width>" + videoWidth + "</tt:Width>\n" +
+                "                        <tt:Height>" + videoHeight + "</tt:Height>\n" +
                 "                    </tt:Resolution>\n" +
                 "                    <tt:Quality>44.0</tt:Quality>\n" +
                 "                    <tt:RateControl>\n" +
                 "                        <tt:FrameRateLimit>5</tt:FrameRateLimit>\n" +
                 "                        <tt:EncodingInterval>1</tt:EncodingInterval>\n" +
-                "                        <tt:BitrateLimit>2000</tt:BitrateLimit>\n" +
+                "                        <tt:BitrateLimit>" + bitRate + "</tt:BitrateLimit>\n" +
                 "                    </tt:RateControl>\n" +
                 "                    <tt:Multicast>\n" +
                 "                        <tt:Address>\n" +

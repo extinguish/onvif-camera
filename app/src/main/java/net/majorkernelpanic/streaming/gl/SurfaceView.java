@@ -30,8 +30,8 @@ import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 
-public class SurfaceView extends android.view.SurfaceView implements Runnable, OnFrameAvailableListener, SurfaceHolder.Callback {
-
+public class SurfaceView extends android.view.SurfaceView implements Runnable, OnFrameAvailableListener,
+		SurfaceHolder.Callback {
 	public final static String TAG = "GLSurfaceView";
 
 	private Thread mThread = null;

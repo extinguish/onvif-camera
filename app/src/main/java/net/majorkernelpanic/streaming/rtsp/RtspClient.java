@@ -48,9 +48,11 @@ import android.util.Log;
  * A basic and asynchronous RTSP client.
  * The original purpose of this class was to implement a small RTSP client compatible with Wowza.
  * It implements Digest Access Authentication according to RFC 2069.
+ * <p>
+ * 这个类并没有被真的使用到，只是在{@link Session}的注释当中被引用到。
+ * 这个类本身的原始作用也只是为了展示某个功能.
  */
 public class RtspClient {
-
     public final static String TAG = "RtspClient";
 
     /**
@@ -82,7 +84,7 @@ public class RtspClient {
     private final static int STATE_STARTING = 0x01;
     private final static int STATE_STOPPING = 0x02;
     private final static int STATE_STOPPED = 0x03;
-    private int mState = 0;
+    private int mState;
 
     private class Parameters {
         public String host;
@@ -104,7 +106,6 @@ public class RtspClient {
         }
     }
 
-
     private Parameters mTmpParameters;
     private Parameters mParameters;
 
@@ -123,7 +124,7 @@ public class RtspClient {
      * RTSP server (for example your Wowza Media Server).
      */
     public interface Callback {
-        public void onRtspUpdate(int message, Exception exception);
+        void onRtspUpdate(int message, Exception exception);
     }
 
     public RtspClient() {
@@ -145,7 +146,6 @@ public class RtspClient {
             }
         }.start();
         signal.acquireUninterruptibly();
-
     }
 
     /**
@@ -231,7 +231,7 @@ public class RtspClient {
 
                 try {
                     mParameters.session.syncConfigure();
-                } catch (Exception e) {
+                } catch (final Exception e) {
                     mParameters.session = null;
                     mState = STATE_STOPPED;
                     return;
@@ -241,7 +241,7 @@ public class RtspClient {
                     tryConnection();
                 } catch (Exception e) {
                     postError(ERROR_CONNECTION_FAILED, e);
-                    abord();
+                    abort();
                     return;
                 }
 
@@ -250,9 +250,8 @@ public class RtspClient {
                     mState = STATE_STARTED;
                     mHandler.post(mConnectionMonitor);
                 } catch (Exception e) {
-                    abord();
+                    abort();
                 }
-
             }
         });
 
@@ -270,7 +269,7 @@ public class RtspClient {
                 }
                 if (mState != STATE_STOPPED) {
                     mState = STATE_STOPPING;
-                    abord();
+                    abort();
                 }
             }
         });
@@ -281,7 +280,7 @@ public class RtspClient {
         mHandler.getLooper().quit();
     }
 
-    private void abord() {
+    private void abort() {
         try {
             sendRequestTeardown();
         } catch (Exception ignore) {
@@ -485,7 +484,7 @@ public class RtspClient {
                         mHandler.post(mConnectionMonitor);
                         postMessage(MESSAGE_CONNECTION_RECOVERED);
                     } catch (Exception e) {
-                        abord();
+                        abort();
                     }
                 } catch (IOException e) {
                     mHandler.postDelayed(mRetryConnection, 1000);

@@ -185,9 +185,7 @@ public class ModAssetServer implements HttpRequestHandler {
             Log.d(TAG, "File " + "www" + url + " not found");
             body.setContentType("text/html; charset=UTF-8");
         }
-
         response.setEntity(body);
-
     }
 
     private String getMimeMediaType(String fileName) {

@@ -22,6 +22,7 @@ package net.majorkernelpanic.streaming.video;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -45,7 +46,8 @@ import android.util.Log;
 /**
  * A class for streaming H.264 from the camera of an android device using RTP.
  * You should use a {@link Session} instantiated with {@link SessionBuilder} instead of using this class directly.
- * Call {@link #setDestinationAddress(InetAddress)}, {@link #setDestinationPorts(int)} and {@link #setVideoQuality(VideoQuality)}
+ * Call {@link net.majorkernelpanic.streaming.rtp.AbstractPacketizer#setDestination(InetAddress, int, int)},
+ * {@link #setDestinationPorts(int)} and {@link #setVideoQuality(VideoQuality)}
  * to configure the stream. You can then call {@link #start()} to start the RTP stream.
  * Call {@link #stop()} to stop the stream.
  */
@@ -79,8 +81,10 @@ public class H264Stream extends VideoStream {
     }
 
     /**
-     * Returns a description of the stream using SDP. It can then be included in an SDP file.
+     * Returns a description of the stream using SDP(Session Description Protocol).
+     * It can then be included in an SDP file.
      */
+    @Override
     public synchronized String getSessionDescription() throws IllegalStateException {
         if (mConfig == null)
             throw new IllegalStateException("You need to call configure() first !");
@@ -93,6 +97,7 @@ public class H264Stream extends VideoStream {
      * Starts the stream.
      * This will also open the camera and dispay the preview if {@link #startPreview()} has not aready been called.
      */
+    @Override
     public synchronized void start() throws IllegalStateException, IOException {
         configure();
         if (!mStreaming) {
@@ -107,14 +112,21 @@ public class H264Stream extends VideoStream {
      * Configures the stream. You need to call this before calling {@link #getSessionDescription()} to apply
      * your configuration of the stream.
      */
+    @Override
     public synchronized void configure() throws IllegalStateException, IOException {
         super.configure();
+        Log.d(TAG, "Configure H264 Stream");
         mMode = mRequestedMode;
         mQuality = mRequestedQuality.clone();
+        // 配置时,会根据视频要传输的分辨率以及比特率来决定采用的编码器
+        // 这种策略很牛逼
         mConfig = testH264();
     }
 
     /**
+     * 这里的方法名称可能不太恰当,让人误以为这是测试方法
+     * 准确来说,这个方法应该是"探测方法",即探测以前当前系统的性能底线,然后再决定采用什么编码方式.
+     * <p>
      * Tests if streaming with the given configuration (bit rate, frame rate, resolution) is possible
      * and determines the pps and sps. Should not be called by the UI thread.
      **/
@@ -125,9 +137,12 @@ public class H264Stream extends VideoStream {
 
     @SuppressLint("NewApi")
     private MP4Config testMediaCodecAPI() throws RuntimeException, IOException {
+        Log.v(TAG, "test media codec API");
         createCamera();
         updateCamera();
         try {
+            // 目前这里的策略指定过程考虑到了UI界面的交互操作
+            // 但是实际上我们程序最终部署到地方是不需要考虑这些,因此这里的策略之后需要调整
             if (mQuality.resX >= 640) {
                 // Using the MediaCodec API with the buffer method for high resolutions is too slow
                 mMode = MODE_MEDIARECORDER_API;
@@ -136,7 +151,7 @@ public class H264Stream extends VideoStream {
             return new MP4Config(debugger.getB64SPS(), debugger.getB64PPS());
         } catch (Exception e) {
             // Fallback on the old streaming method using the MediaRecorder API
-            Log.e(TAG, "Resolution not supported with the MediaCodec API, we fallback on the old streamign method.");
+            Log.e(TAG, "Resolution not supported with the MediaCodec API, we fallback on the old streamign method.", e);
             mMode = MODE_MEDIARECORDER_API;
             return testH264();
         }
@@ -144,6 +159,7 @@ public class H264Stream extends VideoStream {
 
     // Should not be called by the UI thread
     private MP4Config testMediaRecorderAPI() throws RuntimeException, IOException {
+        Log.v(TAG, "test mediaRecorder API");
         String key = PREF_PREFIX + "h264-mr-" + mRequestedQuality.framerate + "," + mRequestedQuality.resX + "," + mRequestedQuality.resY;
 
         if (mSettings != null) {
@@ -180,7 +196,8 @@ public class H264Stream extends VideoStream {
             lockCamera();
             try {
                 mCamera.stopPreview();
-            } catch (Exception e) {
+            } catch (final Exception e) {
+                Log.e(TAG, "Exception happened while stop the preview", e);
             }
             mPreviewStarted = false;
         }
@@ -195,7 +212,6 @@ public class H264Stream extends VideoStream {
         unlockCamera();
 
         try {
-
             mMediaRecorder = new MediaRecorder();
             mMediaRecorder.setCamera(mCamera);
             mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
@@ -240,11 +256,12 @@ public class H264Stream extends VideoStream {
         } catch (RuntimeException e) {
             throw new ConfNotSupportedException(e.getMessage());
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            Log.e(TAG, "thread interrupted exception happened", e);
         } finally {
             try {
                 mMediaRecorder.stop();
             } catch (Exception e) {
+                Log.e(TAG, "Exception happened while stop the MediaRecorder", e);
             }
             mMediaRecorder.release();
             mMediaRecorder = null;
@@ -269,9 +286,6 @@ public class H264Stream extends VideoStream {
             editor.putString(key, config.getProfileLevel() + "," + config.getB64SPS() + "," + config.getB64PPS());
             editor.commit();
         }
-
         return config;
-
     }
-
 }

@@ -20,12 +20,29 @@
 
 package net.majorkernelpanic.streaming.video;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
+import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
+import android.hardware.Camera;
+import android.hardware.Camera.CameraInfo;
+import android.hardware.Camera.Parameters;
+import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.media.MediaFormat;
+import android.media.MediaRecorder;
+import android.os.Build;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
+import android.os.MemoryFile;
+import android.os.Message;
+import android.util.Log;
+import android.view.Surface;
+import android.view.SurfaceHolder;
+import android.view.SurfaceHolder.Callback;
 
+import net.majorkernelpanic.spydroid.SpydroidApplication;
 import net.majorkernelpanic.streaming.MediaStream;
 import net.majorkernelpanic.streaming.Stream;
 import net.majorkernelpanic.streaming.exceptions.CameraInUseException;
@@ -36,27 +53,21 @@ import net.majorkernelpanic.streaming.hw.EncoderDebugger;
 import net.majorkernelpanic.streaming.hw.NV21Convertor;
 import net.majorkernelpanic.streaming.rtp.MediaCodecInputStream;
 
-import android.annotation.SuppressLint;
-import android.content.SharedPreferences;
-import android.content.SharedPreferences.Editor;
-import android.hardware.Camera;
-import android.hardware.Camera.CameraInfo;
-import android.hardware.Camera.Parameters;
-import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
-import android.media.MediaFormat;
-import android.media.MediaRecorder;
-import android.os.Looper;
-import android.util.Log;
-import android.view.Surface;
-import android.view.SurfaceHolder;
-import android.view.SurfaceHolder.Callback;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.ref.WeakReference;
+import java.nio.ByteBuffer;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+
+import static net.majorkernelpanic.spydroid.SpydroidApplication.BACK_CAMERA_FRAME_LEN;
+import static net.majorkernelpanic.spydroid.SpydroidApplication.FRONT_CAMERA_FRAME_LEN;
 
 /**
  * Don't use this class directly.
  */
+@TargetApi(Build.VERSION_CODES.JELLY_BEAN)
 public abstract class VideoStream extends MediaStream {
-
     protected final static String TAG = "VideoStream";
 
     protected VideoQuality mRequestedQuality = VideoQuality.DEFAULT_VIDEO_QUALITY.clone();
@@ -82,6 +93,8 @@ public abstract class VideoStream extends MediaStream {
     protected int mCameraImageFormat;
     protected int mMaxFps = 0;
 
+    private MemoryFile mFrontCameraMemFile, mBackCameraMemFile;
+
     /**
      * Don't use this class directly.
      * Uses CAMERA_FACING_BACK by default.
@@ -96,8 +109,24 @@ public abstract class VideoStream extends MediaStream {
      * @param camera Can be either CameraInfo.CAMERA_FACING_BACK or CameraInfo.CAMERA_FACING_FRONT
      */
     @SuppressLint("InlinedApi")
-    public VideoStream(int camera) {
+    VideoStream(int camera) {
         super();
+        if (SpydroidApplication.USE_SHARE_BUFFER_DATA) {
+            FrontCameraHandlerCallback frontCameraHandlerCallback = new FrontCameraHandlerCallback(new WeakReference<>(this));
+            HandlerThread frontCameraHandlerThread = new HandlerThread("read_front_cam_stream_data");
+            frontCameraHandlerThread.start();
+            mFrontCameraReadingHandler = new Handler(frontCameraHandlerThread.getLooper(), frontCameraHandlerCallback);
+
+            BackCameraHandlerCallback backCameraHandlerCallback = new BackCameraHandlerCallback(new WeakReference<>(this));
+            HandlerThread backCameraHandlerThread = new HandlerThread("read_back_cam_stream_data");
+            backCameraHandlerThread.start();
+            mBackCameraReadingHandler = new Handler(backCameraHandlerThread.getLooper(), backCameraHandlerCallback);
+
+            SpydroidApplication application = SpydroidApplication.getInstance();
+            mFrontCameraMemFile = application.getFrontCameraMemFile();
+            mBackCameraMemFile = application.getBackCameraMemFile();
+        }
+
         setCamera(camera);
     }
 
@@ -129,16 +158,22 @@ public abstract class VideoStream extends MediaStream {
      * @throws RuntimeException
      **/
     public void switchCamera() throws RuntimeException, IOException {
-        if (Camera.getNumberOfCameras() == 1)
+        if (Camera.getNumberOfCameras() == 1) {
             throw new IllegalStateException("Phone only has one camera !");
+        }
         boolean streaming = mStreaming;
         boolean previewing = mCamera != null && mCameraOpenedManually;
-        mCameraId = (mCameraId == CameraInfo.CAMERA_FACING_BACK) ? CameraInfo.CAMERA_FACING_FRONT : CameraInfo.CAMERA_FACING_BACK;
+        mCameraId = (mCameraId == CameraInfo.CAMERA_FACING_BACK) ?
+                CameraInfo.CAMERA_FACING_FRONT : CameraInfo.CAMERA_FACING_BACK;
         setCamera(mCameraId);
         stopPreview();
         mFlashEnabled = false;
-        if (previewing) startPreview();
-        if (streaming) start();
+        if (previewing) {
+            startPreview();
+        }
+        if (streaming) {
+            start();
+        }
     }
 
     public int getCamera() {
@@ -184,11 +219,9 @@ public abstract class VideoStream extends MediaStream {
     public synchronized void setFlashState(boolean state) {
         // If the camera has already been opened, we apply the change immediately
         if (mCamera != null) {
-
             if (mStreaming && mMode == MODE_MEDIARECORDER_API) {
                 lockCamera();
             }
-
             Parameters parameters = mCamera.getParameters();
 
             // We test if the phone has a flash
@@ -236,7 +269,6 @@ public abstract class VideoStream extends MediaStream {
     public void setPreviewOrientation(int orientation) {
         mRequestedOrientation = orientation;
     }
-
 
     /**
      * Sets the configuration of the stream. You can call this method at any time
@@ -303,18 +335,13 @@ public abstract class VideoStream extends MediaStream {
                 try {
                     startPreview();
                 } catch (RuntimeException e) {
-                    e.printStackTrace();
+                    Log.e(TAG, "Fail to stop the stream", e);
                 }
             }
         }
     }
 
-    public synchronized void startPreview()
-            throws CameraInUseException,
-            InvalidSurfaceException,
-            ConfNotSupportedException,
-            RuntimeException {
-
+    public synchronized void startPreview() throws RuntimeException {
         mCameraOpenedManually = true;
         if (!mPreviewStarted) {
             createCamera();
@@ -341,7 +368,6 @@ public abstract class VideoStream extends MediaStream {
      * Video encoding is done by a MediaRecorder.
      */
     protected void encodeWithMediaRecorder() throws IOException {
-
         Log.d(TAG, "Video encoded using the MediaRecorder API");
 
         // We need a local socket to forward data output by the camera to the packetizer
@@ -367,7 +393,7 @@ public abstract class VideoStream extends MediaStream {
             // The bandwidth actually consumed is often above what was requested
             mMediaRecorder.setVideoEncodingBitRate((int) (mRequestedQuality.bitrate * 0.8));
 
-            // We write the ouput of the camera in a local socket instead of a file !
+            // We write the output of the camera in a local socket instead of a file !
             // This one little trick makes streaming feasible quiet simply: data from the camera
             // can then be manipulated at the other end of the socket
             mMediaRecorder.setOutputFile(mSender.getFileDescriptor());
@@ -406,22 +432,26 @@ public abstract class VideoStream extends MediaStream {
     /**
      * Video encoding is done by a MediaCodec.
      */
-    protected void encodeWithMediaCodec() throws RuntimeException, IOException {
+    @Override
+    protected void encodeWithMediaCodec() throws RuntimeException {
         if (mMode == MODE_MEDIACODEC_API_2) {
             // Uses the method MediaCodec.createInputSurface to feed the encoder
+            Log.v(TAG, "Use the MediaCodec.createInputSurface to feed encoder");
             encodeWithMediaCodecMethod2();
         } else {
             // Uses dequeueInputBuffer to feed the encoder
+            Log.v(TAG, "Use the dequeueInputBuffer to feed the encoder");
             encodeWithMediaCodecMethod1();
         }
     }
+
+    private NV21Convertor mConvertor;
 
     /**
      * Video encoding is done by a MediaCodec.
      */
     @SuppressLint("NewApi")
-    protected void encodeWithMediaCodecMethod1() throws RuntimeException, IOException {
-
+    private void encodeWithMediaCodecMethod1() throws RuntimeException {
         Log.d(TAG, "Video encoded using the MediaCodec API with a buffer");
 
         // Updates the parameters of the camera if needed
@@ -443,7 +473,7 @@ public abstract class VideoStream extends MediaStream {
         }
 
         EncoderDebugger debugger = EncoderDebugger.debug(mSettings, mQuality.resX, mQuality.resY);
-        final NV21Convertor convertor = debugger.getNV21Convertor();
+        mConvertor = debugger.getNV21Convertor();
 
         mMediaCodec = MediaCodec.createByCodecName(debugger.getEncoderName());
         MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", mQuality.resX, mQuality.resY);
@@ -454,43 +484,93 @@ public abstract class VideoStream extends MediaStream {
         mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         mMediaCodec.start();
 
-        Camera.PreviewCallback callback = new Camera.PreviewCallback() {
-            long now = System.nanoTime() / 1000, oldnow = now, i = 0;
-            ByteBuffer[] inputBuffers = mMediaCodec.getInputBuffers();
+        // TODO: 我们需要在这里进行数据源的转换
+        // TODO: 这里是直接使用的CameraPreview的数据,
+        // TODO: 替换成来自ShareBuffer的数据
+        if (SpydroidApplication.USE_SHARE_BUFFER_DATA) {
+            // 发送消息，开始读取ShareBuffer当中的数据
+            mFrontCameraReadingHandler.sendEmptyMessage(MSG_READ_FRONT_STREAM_DATA);
+            // 然后在processShareBufferData()当中对读取出来的数据进行编码
 
-            @Override
-            public void onPreviewFrame(byte[] data, Camera camera) {
-                oldnow = now;
-                now = System.nanoTime() / 1000;
-                if (i++ > 3) {
-                    i = 0;
-                    //Log.d(TAG,"Measured: "+1000000L/(now-oldnow)+" fps.");
-                }
-                try {
-                    int bufferIndex = mMediaCodec.dequeueInputBuffer(500000);
-                    if (bufferIndex >= 0) {
-                        inputBuffers[bufferIndex].clear();
-                        convertor.convert(data, inputBuffers[bufferIndex]);
-                        mMediaCodec.queueInputBuffer(bufferIndex, 0, inputBuffers[bufferIndex].position(), now, 0);
-                    } else {
-                        Log.e(TAG, "No buffer available !");
-                    }
-                } finally {
-                    mCamera.addCallbackBuffer(data);
-                }
+            // 然后开始解码的操作
+            for (int i = 0; i < 10; i++) {
+                mCamera.addCallbackBuffer(new byte[mConvertor.getBufferSize()]);
             }
-        };
 
-        for (int i = 0; i < 10; i++) mCamera.addCallbackBuffer(new byte[convertor.getBufferSize()]);
-        mCamera.setPreviewCallbackWithBuffer(callback);
+            mPacketizer.setDestination(mDestination, mRtpPort, mRtcpPort);
+            mPacketizer.setInputStream(new MediaCodecInputStream(mMediaCodec));
+            mPacketizer.start();
 
-        // The packetizer encapsulates the bit stream in an RTP stream and send it over the network
-        mPacketizer.setDestination(mDestination, mRtpPort, mRtcpPort);
-        mPacketizer.setInputStream(new MediaCodecInputStream(mMediaCodec));
-        mPacketizer.start();
+            mStreaming = true;
+        } else {
+            // 使用系统相机的预览数据
+            Camera.PreviewCallback callback = new Camera.PreviewCallback() {
+                long now = System.nanoTime() / 1000, oldnow = now, i = 0;
+                ByteBuffer[] inputBuffers = mMediaCodec.getInputBuffers();
 
-        mStreaming = true;
+                @Override
+                public void onPreviewFrame(byte[] data, Camera camera) {
+                    oldnow = now;
+                    now = System.nanoTime() / 1000;
+                    if (i++ > 3) {
+                        i = 0;
+                        //Log.d(TAG,"Measured: "+1000000L/(now-oldnow)+" fps.");
+                    }
+                    try {
+                        int bufferIndex = mMediaCodec.dequeueInputBuffer(500000);
+                        if (bufferIndex >= 0) {
+                            inputBuffers[bufferIndex].clear();
+                            // 首先将原始预览数据进行UV通道转换
+                            mConvertor.convert(data, inputBuffers[bufferIndex]); // 转换后的数据会被放到inputBuffers当中
+                            // 然后再交给MediaCodec进行编码
+                            // 关于MediaCodec#queueInputBuffer的作用:
+                            /*
+                             * After filling a range of the input buffer at the specified index
+                             * submit it to the component.
+                             *
+                             * Many decoders require the actual compressed data stream to be
+                             * preceded by "codec specific data", i.e. setup data used to initialize
+                             * the codec such as PPS/SPS in the case of AVC video or code tables
+                             * in the case of vorbis audio.
+                             * The class {@link android.media.MediaExtractor} provides codec
+                             * specific data as part of
+                             * the returned track format in entries named "csd-0", "csd-1" ...
+                             *
+                             * These buffers should be submitted using the flag BUFFER_FLAG_CODEC_CONFIG.
+                             *
+                             * To indicate that this is the final piece of input data (or rather that
+                             * no more input data follows unless the decoder is subsequently flushed)
+                             * specify the flag BUFFER_FLAG_END_OF_STREAM.
+                             */
+                            mMediaCodec.queueInputBuffer(
+                                    bufferIndex, // The index of a client-owned input buffer previously returned
+                                    0, // The byte offset into the input buffer at which the data starts.
+                                    inputBuffers[bufferIndex].position(), // The number of bytes of valid input data.
+                                    now,  // The time at which this buffer should be rendered.
+                                    0 // A bitmask of flags BUFFER_FLAG_SYNC_FRAME, BUFFER_FLAG_CODEC_CONFIG
+                                    // or BUFFER_FLAG_END_OF_STREAM.
+                            );
+                        } else {
+                            Log.e(TAG, "No buffer available !");
+                        }
+                    } finally {
+                        mCamera.addCallbackBuffer(data);
+                    }
+                }
+            };
 
+            for (int i = 0; i < 10; i++) {
+                mCamera.addCallbackBuffer(new byte[mConvertor.getBufferSize()]);
+            }
+            mCamera.setPreviewCallbackWithBuffer(callback);
+
+            // The packetizer encapsulates the bit stream in an RTP stream and send it over the network
+            mPacketizer.setDestination(mDestination, mRtpPort, mRtcpPort);
+            mPacketizer.setInputStream(new MediaCodecInputStream(mMediaCodec));
+            mPacketizer.start();
+
+            mStreaming = true;
+        }
     }
 
     /**
@@ -498,8 +578,7 @@ public abstract class VideoStream extends MediaStream {
      * But here we will use the buffer-to-surface methode
      */
     @SuppressLint({"InlinedApi", "NewApi"})
-    protected void encodeWithMediaCodecMethod2() throws RuntimeException, IOException {
-
+    private void encodeWithMediaCodecMethod2() throws RuntimeException {
         Log.d(TAG, "Video encoded using the MediaCodec API with a surface");
 
         // Updates the parameters of the camera if needed
@@ -518,8 +597,9 @@ public abstract class VideoStream extends MediaStream {
         mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
         mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
         mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+        // Requests a Surface to use as the input to an encoder, in place of input buffers.
         Surface surface = mMediaCodec.createInputSurface();
-        ((SurfaceView) mSurfaceView).addMediaCodecSurface(surface);
+        mSurfaceView.addMediaCodecSurface(surface);
         mMediaCodec.start();
 
         // The packetizer encapsulates the bit stream in an RTP stream and send it over the network
@@ -528,7 +608,6 @@ public abstract class VideoStream extends MediaStream {
         mPacketizer.start();
 
         mStreaming = true;
-
     }
 
     /**
@@ -565,14 +644,19 @@ public abstract class VideoStream extends MediaStream {
         });
         mCameraThread.start();
         lock.acquireUninterruptibly();
-        if (exception[0] != null) throw new CameraInUseException(exception[0].getMessage());
+        if (exception[0] != null) {
+            throw new CameraInUseException(exception[0].getMessage());
+        }
     }
 
-    protected synchronized void createCamera() throws RuntimeException {
-        if (mSurfaceView == null)
+    synchronized void createCamera() throws RuntimeException {
+        Log.v(TAG, "create camera");
+        if (mSurfaceView == null) {
             throw new InvalidSurfaceException("Invalid surface !");
-        if (mSurfaceView.getHolder() == null || !mSurfaceReady)
+        }
+        if (mSurfaceView.getHolder() == null || !mSurfaceReady) {
             throw new InvalidSurfaceException("Invalid surface !");
+        }
 
         if (mCamera == null) {
             openCamera();
@@ -595,7 +679,6 @@ public abstract class VideoStream extends MediaStream {
             });
 
             try {
-
                 // If the phone has a flash, we turn it on/off according to mFlashEnabled
                 // setRecordingHint(true) is a very nice optimisation if you plane to only use the Camera for recording
                 Parameters parameters = mCamera.getParameters();
@@ -621,11 +704,10 @@ public abstract class VideoStream extends MediaStream {
                 destroyCamera();
                 throw e;
             }
-
         }
     }
 
-    protected synchronized void destroyCamera() {
+    synchronized void destroyCamera() {
         if (mCamera != null) {
             if (mStreaming) super.stop();
             lockCamera();
@@ -642,7 +724,8 @@ public abstract class VideoStream extends MediaStream {
         }
     }
 
-    protected synchronized void updateCamera() throws RuntimeException {
+    synchronized void updateCamera() throws RuntimeException {
+        Log.v(TAG, "update camera");
         if (mPreviewStarted) {
             mPreviewStarted = false;
             mCamera.stopPreview();
@@ -666,7 +749,7 @@ public abstract class VideoStream extends MediaStream {
         }
     }
 
-    protected void lockCamera() {
+    void lockCamera() {
         if (mUnlocked) {
             Log.d(TAG, "Locking camera");
             try {
@@ -678,7 +761,7 @@ public abstract class VideoStream extends MediaStream {
         }
     }
 
-    protected void unlockCamera() {
+    void unlockCamera() {
         if (!mUnlocked) {
             Log.d(TAG, "Unlocking camera");
             try {
@@ -689,7 +772,6 @@ public abstract class VideoStream extends MediaStream {
             mUnlocked = true;
         }
     }
-
 
     /**
      * Computes the average frame rate at which the preview callback is called.
@@ -702,6 +784,9 @@ public abstract class VideoStream extends MediaStream {
         final Camera.PreviewCallback callback = new Camera.PreviewCallback() {
             int i = 0, t = 0;
             long now, oldnow, count = 0;
+
+            // TODO: guoshichao 如果我们使用的是ShareBuffer当中的数据的话，FrameRate是一个固定的值，
+            // 这个值由我们自己来决定，不再需要动态的计算
 
             @Override
             public void onPreviewFrame(byte[] data, Camera camera) {
@@ -730,10 +815,110 @@ public abstract class VideoStream extends MediaStream {
                 editor.commit();
             }
         } catch (InterruptedException e) {
+            Log.e(TAG, "Interrupted exception happened", e);
         }
 
         mCamera.setPreviewCallback(null);
-
     }
 
+    /**
+     * 循环发送消息的间隔:66ms
+     */
+    private static final int READ_MEDIA_STREAMING_DATA_INTERVAL = 66;
+
+    private static final int MSG_READ_FRONT_STREAM_DATA = 1 << 1;
+    private static final int MSG_READ_BACK_STREAM_DATA = 1 << 2;
+
+    private static final byte[] FRONT_CAMERA_DATA_BUF = new byte[FRONT_CAMERA_FRAME_LEN];
+    private static final byte[] BACK_CAMERA_DATA_BUF = new byte[BACK_CAMERA_FRAME_LEN];
+
+    private Handler mFrontCameraReadingHandler;
+    private Handler mBackCameraReadingHandler;
+
+    private ByteBuffer[] mInputBuffers = mMediaCodec.getInputBuffers();
+
+    private long mNow = System.nanoTime() / 1000, mOldnow = mNow, i = 0;
+
+    private void processShareBufferData(boolean isFrontCamera) {
+        try {
+            final int readBytesCount;
+            if (isFrontCamera) {
+                readBytesCount = mFrontCameraMemFile.readBytes(FRONT_CAMERA_DATA_BUF, 1, 0, FRONT_CAMERA_FRAME_LEN);
+                Log.d(TAG, "encode : FRONT CAMERA --> with bytes length of " + readBytesCount);
+            } else {
+                readBytesCount = mBackCameraMemFile.readBytes(BACK_CAMERA_DATA_BUF, 1, 0, BACK_CAMERA_FRAME_LEN);
+                Log.d(TAG, "encode : BACK CAMERA --> with bytes length of " + readBytesCount);
+            }
+            // TODO: 然后对读取出的数据进行编码操作
+            // TODO: 这里默认采用的是前置摄像头读取出的share buffer数据
+            // TODO: 之后进行分别测试
+            mOldnow = mNow;
+            mNow = System.nanoTime() / 1000;
+            if (i++ > 3) {
+                i = 0;
+            }
+            try {
+                int bufferIndex = mMediaCodec.dequeueInputBuffer(500000); // 500 seconds for timeout
+                if (bufferIndex >= 0) {
+                    mInputBuffers[bufferIndex].clear();
+                    mConvertor.convert(FRONT_CAMERA_DATA_BUF, mInputBuffers[bufferIndex]);
+
+                    mMediaCodec.queueInputBuffer(bufferIndex,
+                            0,
+                            mInputBuffers[bufferIndex].position(),
+                            mNow,
+                            0);
+                } else {
+                    Log.e(TAG, "Read from ShareBuffer --> no buffer available");
+                }
+            } finally {
+                mCamera.addCallbackBuffer(FRONT_CAMERA_DATA_BUF);
+            }
+
+        } catch (IOException e) {
+            Log.e(TAG, "IO exception happened while read data from Camera Memory File", e);
+        } catch (IndexOutOfBoundsException e) {
+            Log.e(TAG, "index out of bounds", e);
+        }
+    }
+
+    private static class FrontCameraHandlerCallback implements Handler.Callback {
+        private VideoStream outObj;
+
+        FrontCameraHandlerCallback(WeakReference<VideoStream> outRef) {
+            this.outObj = outRef.get();
+        }
+
+        @Override
+        public boolean handleMessage(Message msg) {
+            if (msg.what == MSG_READ_FRONT_STREAM_DATA) {
+                // 首先将消息发送出去
+                // 因为outObj.processShareBufferData();方法的执行会消耗时间
+                // 所以需要先将消息发送出去，然后再处理数据
+                outObj.mFrontCameraReadingHandler.sendEmptyMessageDelayed(MSG_READ_FRONT_STREAM_DATA, READ_MEDIA_STREAMING_DATA_INTERVAL);
+
+                outObj.processShareBufferData(true);
+            }
+            return false;
+        }
+    }
+
+    private static class BackCameraHandlerCallback implements Handler.Callback {
+        private VideoStream outObj;
+
+        BackCameraHandlerCallback(WeakReference<VideoStream> outRef) {
+            this.outObj = outRef.get();
+        }
+
+        @Override
+        public boolean handleMessage(Message msg) {
+            if (msg.what == MSG_READ_BACK_STREAM_DATA) {
+                // 直接循环发送相同的消息
+                outObj.mBackCameraReadingHandler.sendEmptyMessageDelayed(MSG_READ_BACK_STREAM_DATA, READ_MEDIA_STREAMING_DATA_INTERVAL);
+
+                outObj.processShareBufferData(false);
+            }
+            return false;
+        }
+    }
 }
