@@ -22,8 +22,15 @@ import javax.xml.parsers.SAXParser;
 public class ONVIFPacketHandler extends DefaultHandler {
     private static final String TAG = "ONVIFPacketHandler";
 
+    // 在实际情况当中，我们接收到的Probe Packet的内容并不是固定的，
+    // 例如对于ONVIF Device Test Tool这种工具，我们收到的数据包
+    // 当中的MessageID字段就不是a:MessageID作为节点标识，而是通过wsa:MessageID作为标识，因此
+    // 我们需要都处理
     private static final String LOCAL_MSG_ID = "a:MessageID";
     private static final String LOCAL_ACTION = "a:Action";
+
+    private static final String LOCAL_MSG_ID_1 = "wsa:MessageID";
+    private static final String LOCAL_ACTION_1 = "wsa:Action";
 
     private boolean isMsgID = false;
     private boolean isAction = false;
@@ -37,17 +44,19 @@ public class ONVIFPacketHandler extends DefaultHandler {
     @Override
     public void startDocument() throws SAXException {
         Log.d(TAG, "start parsing the document");
-
     }
 
     @Override
     public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
         Log.d(TAG, "element : " + String.format("uri = %s, localName = %s, qName = %s", uri, localName, qName));
+
         switch (qName) {
             case LOCAL_MSG_ID:
+            case LOCAL_MSG_ID_1:
                 isMsgID = true;
                 break;
             case LOCAL_ACTION:
+            case LOCAL_ACTION_1:
                 isAction = true;
                 break;
         }

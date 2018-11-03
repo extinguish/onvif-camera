@@ -32,7 +32,10 @@ import javax.xml.parsers.SAXParserFactory;
 /**
  * 在SpyDroid的基础上实现ONVIF协议
  * <p>
- * TODO: 最好是将{@link SimpleONVIFManager}实现为一个{@link android.app.Service},并保证其运行在一个单独的进程当中.
+ * 最好是将{@link SimpleONVIFManager}实现为一个{@link android.app.Service},并保证其运行在一个单独的进程当中.
+ *
+ * 在使用ONVIF Device Test Tool做协议测试时，首先要确保ONVIF Device Test Tool与我们当前的设备可以互相ping通.
+ * 然后就是确保组播地址是可行的.
  */
 public class SimpleONVIFManager {
     private static final String TAG = "simpleOnVifManager";
@@ -184,7 +187,6 @@ public class SimpleONVIFManager {
      * 接收来自IPCameraViewer的探测packet
      */
     private void receiveProbePacket() {
-        // TODO: 这里的重复执行有问题，目前的问题是一旦发生异常之后，就无法再次接收信息
         Log.d(TAG, "start receive the Probe packet");
         if (multicastSocket == null) {
             Log.e(TAG, "the multicast socket are null");
@@ -268,22 +270,31 @@ public class SimpleONVIFManager {
         Log.d(TAG, String.format("req message Id are %s, req action are %s", reqMessageId, reqAction));
 
         // 返回响应的probeMatch packet
-        String requestUUID = Utilities.getDevId(context);
+        String devId = Utilities.getDevId(context);
+        Log.v(TAG, "current device ID are " + devId);
 
         // 我们在返回的probeMatch packet当中放入了当前设备(即IPCamera)的IP地址
         // 这样客户端(IPCamera-Viewer)就可以借助这个IP地址，直接向这个IP地址发起
         // ONVIF请求(ONVIF底层是基于HTTP协议的),然后我们自己(IPCamera)就可以处理
         // 这些请求，然后做出对应的操作,例如返回StreamUri等.
-        String sendBack = Utilities.generateDeviceProbeMatchPacket(reqMessageId, requestUUID, serverIp);
+        String sendBack = Utilities.generateDeviceProbeMatchPacket1(
+                devId,
+                reqMessageId,
+                serverIp);
         byte[] sendBuf = sendBack.getBytes();
 
         try {
-            Log.d(TAG, "the probe packet address are " + probePacket.getAddress() + ":" + probePacket.getPort());
-            DatagramPacket packet = new DatagramPacket(sendBuf, sendBuf.length, probePacket.getAddress(), probePacket.getPort());
+            InetAddress probePacketAddress = probePacket.getAddress();
+            int probePacketPort = probePacket.getPort();
+            Log.d(TAG, "the probe packet address are " + probePacketAddress + ":" + probePacketPort);
+
+            DatagramPacket packet = new DatagramPacket(sendBuf,
+                    sendBuf.length, probePacketAddress, probePacketPort);
+
+            Log.v(TAG, "send the ProbeMatch packet back");
             multicastSocket.send(packet);
         } catch (final Exception e) {
             Log.e(TAG, "Exception happened while we send the response packet", e);
         }
-        Log.d(TAG, "send the response data back");
     }
 }

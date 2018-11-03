@@ -146,6 +146,45 @@ public class Utilities {
         return null;
     }
 
+    /**
+     * 针对ONVIF test tool的返回的packet的内容
+     *
+     * @param urnUUID         当前设备的唯一标识ID
+     * @param reqMsgId        由ONVIF test tool发送的probePacket当中messageId
+     * @param serverIpAddress 当前设备的IP地址
+     * @return probe match packet
+     */
+    public static String generateDeviceProbeMatchPacket1(String urnUUID, String reqMsgId, String serverIpAddress) {
+        StringBuffer sb;
+        sb = new StringBuffer();
+        sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\r\n");
+        sb.append("<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:SOAP-ENC=\"http://www.w3.org/2003/05/soap-encoding\" xmlns:xsi=\"http://www" + ".w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:wsa=\"http://schemas.xmlsoap.org/ws/2004/08/addressing\" " + "xmlns:wsdd=\"http://schemas.xmlsoap.org/ws/2005/04/discovery\" xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\" xmlns:dn=\"http://www.onvif" + ".org/ver10/network/wsdl\">\r\n");
+        sb.append(" <SOAP-ENV:Header>\r\n");
+        sb.append(" <wsa:MessageID>urn:uuid" + urnUUID + "</wsa:MessageID>\r\n");
+        sb.append(" <wsa:RelatesTo>" + reqMsgId + "</wsa:RelatesTo>\r\n");
+        sb.append(" <wsa:ReplyTo SOAP-ENV:mustUnderstand=\"true\">\r\n");
+        sb.append(" <wsa:Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:Address>\r\n");
+        sb.append(" </wsa:ReplyTo>\r\n");
+        sb.append(" <wsa:To SOAP-ENV:mustUnderstand=\"true\">http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:To>\r\n");
+        sb.append(" <wsa:Action SOAP-ENV:mustUnderstand=\"true\">http://schemas.xmlsoap.org/ws/2005/04/discovery/ProbeMatches</wsa:Action>\r\n");
+        sb.append(" <wsdd:AppSequence InstanceId=\"0\" MessageNumber=\"5\"></wsdd:AppSequence>\r\n");
+        sb.append(" </SOAP-ENV:Header>\r\n");
+        sb.append(" <SOAP-ENV:Body>\r\n");
+        sb.append(" <wsdd:ProbeMatches>\r\n");
+        sb.append(" <wsdd:ProbeMatch>\r\n");
+        sb.append(" <wsa:EndpointReference>\r\n");
+        sb.append(" <wsa:Address>urn:uuid:" + urnUUID + "</wsa:Address>\r\n");
+        sb.append(" </wsa:EndpointReference>\r\n");
+        sb.append(" <wsdd:Types>dn:NetworkVideoTransmitter</wsdd:Types>\r\n");
+        sb.append(" <wsdd:Scopes>onvif://www.onvif.org/Profile/Streaming onvif://www.onvif.org/type/video_encoder onvif://www.onvif" + ".org/type/audio_encoder onvif://www.onvif.org/hardware/ONVIF-Emu onvif://www.onvif.org/name/ONVIF-Emu onvif://www.onvif.org/location/Default</wsdd:Scopes> \r\n");
+        sb.append(" <wsdd:XAddrs>http://" + serverIpAddress + ":8086/onvif/device_service</wsdd:XAddrs>\r\n");
+        sb.append(" <wsdd:MetadataVersion>10</wsdd:MetadataVersion>\r\n");
+        sb.append(" </wsdd:ProbeMatch>\r\n");
+        sb.append(" </wsdd:ProbeMatches>\r\n");
+        sb.append(" </SOAP-ENV:Body>\r\n");
+        sb.append("</SOAP-ENV:Envelope>");
+        return sb.toString();
+    }
 
     /**
      * @param urnUUID      例如:e32e6863-ea5e-4ee4-997e-69539d1ff2cc

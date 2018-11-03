@@ -64,6 +64,33 @@
 </s:Envelope>
 ```
 
+以下是由`ONVIF Device Test Tool`发送给我们的`Probe Packet`:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<Envelope xmlns:tds="http://www.onvif.org/ver10/device/wsdl" xmlns="http://www.w3.org/2003/05/soap-envelope">
+    <Header>
+        <wsa:MessageID xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing">
+            uuid:69f483ed-5bc7-4e3f-8a8c-7bfc63168aa0
+        </wsa:MessageID>
+        <wsa:To xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing">
+            urn:schemas-xmlsoap-org:ws:2005:04:discovery
+        </wsa:To>
+        <wsa:Action xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing">
+            http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe
+        </wsa:Action>
+    </Header>
+    <Body>
+        <Probe xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.xmlsoap.org/ws/2005/04/discovery">
+            <Types>tds:Device</Types>
+            <Scopes />
+        </Probe>
+    </Body>
+</Envelope>
+```
+
+可以看到不同的工具发送的`Probe Packet`的具体内容有些差异，我们需要对这些差异进行兼容.
+
 ----------------------------------------------------------------
 
 ### `Probe-Match` Packet
@@ -105,6 +132,44 @@
     </s:Body>
 </s:Envelope>
 ```
+
+按照`ONVIF Device Test Tool`的格式要求发送的返回`Probe-Match`数据包的具体样式:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<SOAP-ENV:Envelope xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding" xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope" xmlns:c14n="http://www.w3.org/2001/10/xml-exc-c14n#" xmlns:chan="http://schemas.microsoft.com/ws/2005/02/duplex" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:saml1="urn:oasis:names:tc:SAML:1.0:assertion" xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:sizeds="http://tempuri.org/sizeds.xsd" xmlns:sizexenc="http://tempuri.org/sizexenc.xsd" xmlns:tdn="http://www.onvif.org/ver10/network/wsdl" xmlns:tds="http://www.onvif.org/ver10/device/wsdl" xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl" xmlns:trt="http://www.onvif.org/ver10/media/wsdl" xmlns:tt="http://www.onvif.org/ver10/schema" xmlns:wsa5="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsc="http://docs.oasis-open.org/ws-sx/ws-secureconversation/200512" xmlns:wsdd="http://schemas.xmlsoap.org/ws/2005/04/discovery" xmlns:wsnt="http://docs.oasis-open.org/wsn/b-2" xmlns:wsrfbf="http://docs.oasis-open.org/wsrf/bf-2" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:wstop="http://docs.oasis-open.org/wsn/t-1" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:xenc="http://www.w3.org/2001/04/xmlenc#" xmlns:xmime="http://tempuri.org/xmime.xsd" xmlns:xop="http://www.w3.org/2004/08/xop/include" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <SOAP-ENV:Header>
+        <wsa5:MessageID>urn:uuid:119d6358-a7a0-41e4-b167-f00199b0625d</wsa5:MessageID>
+        <wsa5:RelatesTo>uuid:c6023c78-864b-4a48-a901-bebcf1088730</wsa5:RelatesTo>
+        <wsa5:To SOAP-ENV:mustUnderstand="true">http://www.w3.org/2005/08/addressing/anonymous
+        </wsa5:To>
+        <wsa5:Action SOAP-ENV:mustUnderstand="true">
+            http://schemas.xmlsoap.org/ws/2005/04/discovery/ProbeMatches
+        </wsa5:Action>
+        <wsdd:AppSequence InstanceId="0" MessageNumber="6"></wsdd:AppSequence>
+    </SOAP-ENV:Header>
+    <SOAP-ENV:Body>
+        <wsdd:ProbeMatches>
+            <wsdd:ProbeMatch>
+                <wsa5:EndpointReference>
+                    <wsa5:Address>http://10.0.0.50:1881/</wsa5:Address>
+                </wsa5:EndpointReference>
+                <wsdd:Types>tdn:NetworkVideoTransmitter tds:Device</wsdd:Types>
+                <wsdd:Scopes>onvif://www.onvif.org/name/Company onvif://www.onvif.org/hardware/Imx
+                    onvif://www.onvif.org/Profile/Streaming onvif://www.onvif.org/location/Any
+                    onvif://www.onvif.org/type/NetworkVideoTransmitter
+                    onvif://www.onvif.org/type/video_encoder
+                    onvif://www.onvif.org/type/audio_encoder onvif://www.onvif.org/type/ptz
+                </wsdd:Scopes>
+                <wsdd:XAddrs>http://10.0.0.50:1881/</wsdd:XAddrs>
+                <wsdd:MetadataVersion>1</wsdd:MetadataVersion>
+            </wsdd:ProbeMatch>
+        </wsdd:ProbeMatches>
+    </SOAP-ENV:Body>
+</SOAP-ENV:Envelope>
+```
+
+不同的工具的封装成的数据格式是不一样的.
 
 我们需要按照上面要求的格式进行封装我们的`ProbeMtach`数据包.
 
