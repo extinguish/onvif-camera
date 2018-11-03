@@ -20,6 +20,7 @@
 
 package net.majorkernelpanic.streaming.hw;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
@@ -256,7 +257,7 @@ public class EncoderDebugger {
                             mDecoderColorFormat = decoders[k].formats[l];
                             try {
                                 configureDecoder();
-                            } catch (Exception e) {
+                            } catch (final Exception e) {
                                 if (VERBOSE)
                                     Log.d(TAG, mDecoderName + " can't be used with " + mDecoderColorFormat + " at " + mWidth + "x" + mHeight);
                                 releaseDecoder();
@@ -539,7 +540,7 @@ public class EncoderDebugger {
     /**
      * Instantiates and starts the encoder.
      */
-    private void configureEncoder() {
+    private void configureEncoder() throws IOException {
         mEncoder = MediaCodec.createByCodecName(mEncoderName);
         MediaFormat mediaFormat = MediaFormat.createVideoFormat(MIME_TYPE, mWidth, mHeight);
         mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, BITRATE);
@@ -568,7 +569,7 @@ public class EncoderDebugger {
     /**
      * Instantiates and starts the decoder.
      */
-    private void configureDecoder() {
+    private void configureDecoder() throws IOException {
         byte[] prefix = new byte[]{0x00, 0x00, 0x00, 0x01};
 
         ByteBuffer csd0 = ByteBuffer.allocate(4 + mSPS.length + 4 + mPPS.length);
@@ -816,15 +817,13 @@ public class EncoderDebugger {
             }
             elapsed = timestamp() - now;
         }
-
         throw new RuntimeException("The decoder did not decode anything.");
-
     }
 
     /**
      * Makes sure the NAL has a header or not.
      *
-     * @param withPrefix If set to true, the NAL will be preceeded with 0x00000001.
+     * withPrefix If set to true, the NAL will be preceded with 0x00000001.
      */
     private boolean hasPrefix(byte[] nal) {
         return nal[0] == 0 && nal[1] == 0 && nal[2] == 0 && nal[3] == 0x01;
@@ -835,6 +834,8 @@ public class EncoderDebugger {
         try {
             configureDecoder();
             decode(true);
+        } catch (IOException e) {
+            Log.e(TAG, "Exception happened while configure the Decoder", e);
         } finally {
             releaseDecoder();
         }

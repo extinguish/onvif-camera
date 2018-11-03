@@ -32,7 +32,6 @@ import android.util.Log;
  * It contains the resolution, the framerate (in fps) and the bitrate (in bps) of the stream.
  */
 public class VideoQuality {
-
     public final static String TAG = "VideoQuality";
 
     /**

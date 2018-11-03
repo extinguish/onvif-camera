@@ -55,9 +55,9 @@ public class MainActivity extends AppCompatActivity {
     /**
      * ONVIF组播地址"239.255.255.250"的IPV6版本
      */
-    private static final String WS_DISCOVERTY_ADDRESS = "FF02::1";
+//    private static final String WS_DISCOVERTY_ADDRESS = "FF02::1";
 //    private static final String WS_DISCOVERTY_ADDRESS = "0:0:0:0:0:ffff:efff:fffa";
-//    private static final String WS_DISCOVERTY_ADDRESS = "239.255.255.250";
+    private static final String WS_DISCOVERTY_ADDRESS = "239.255.255.250";
 //    private static final String WS_DISCOVERTY_ADDRESS = "ff00:0:0:0:0:0:efff:fffa";
 
     private MulticastSocket createMulticastSocket(final String groupUrl, final int port) {

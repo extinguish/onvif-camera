@@ -101,7 +101,7 @@ public class SessionBuilder {
      *
      * @return The reference to the {@link SessionBuilder}
      */
-    public final static SessionBuilder getInstance() {
+    public static SessionBuilder getInstance() {
         if (sInstance == null) {
             synchronized (SessionBuilder.class) {
                 if (sInstance == null) {

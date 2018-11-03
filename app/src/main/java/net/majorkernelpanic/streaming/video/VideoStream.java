@@ -437,11 +437,19 @@ public abstract class VideoStream extends MediaStream {
         if (mMode == MODE_MEDIACODEC_API_2) {
             // Uses the method MediaCodec.createInputSurface to feed the encoder
             Log.v(TAG, "Use the MediaCodec.createInputSurface to feed encoder");
-            encodeWithMediaCodecMethod2();
+            try {
+                encodeWithMediaCodecMethod2();
+            } catch (IOException e) {
+                Log.e(TAG, "fail to encode with MediaCodecMethod2", e);
+            }
         } else {
             // Uses dequeueInputBuffer to feed the encoder
             Log.v(TAG, "Use the dequeueInputBuffer to feed the encoder");
-            encodeWithMediaCodecMethod1();
+            try {
+                encodeWithMediaCodecMethod1();
+            } catch (IOException e) {
+                Log.e(TAG, "fail to encode with MediaCodecMethod1", e);
+            }
         }
     }
 
@@ -451,7 +459,7 @@ public abstract class VideoStream extends MediaStream {
      * Video encoding is done by a MediaCodec.
      */
     @SuppressLint("NewApi")
-    private void encodeWithMediaCodecMethod1() throws RuntimeException {
+    private void encodeWithMediaCodecMethod1() throws RuntimeException, IOException {
         Log.d(TAG, "Video encoded using the MediaCodec API with a buffer");
 
         // Updates the parameters of the camera if needed
@@ -578,7 +586,7 @@ public abstract class VideoStream extends MediaStream {
      * But here we will use the buffer-to-surface methode
      */
     @SuppressLint({"InlinedApi", "NewApi"})
-    private void encodeWithMediaCodecMethod2() throws RuntimeException {
+    private void encodeWithMediaCodecMethod2() throws RuntimeException, IOException {
         Log.d(TAG, "Video encoded using the MediaCodec API with a surface");
 
         // Updates the parameters of the camera if needed

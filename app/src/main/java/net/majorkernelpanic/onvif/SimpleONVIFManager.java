@@ -70,10 +70,15 @@ public class SimpleONVIFManager {
      * 以下的地址是"239.255.255.250"对应的IPV6的格式.
      */
     // TODO: 这里的地址是错误的，但是目前我们只能用这个地址测试，因为下面的IPV6版本的地址有问题(需要换成其他的设备测试一下)
-    private static final String MULTICAST_HOST_IP = "FF02::1";
+//     private static final String MULTICAST_HOST_IP = "FF02::1";
 //    private static final String MULTICAST_HOST_IP = "239.255.255.250"; // 这是正式的ws-service要求的组播地址，如果希望我们的IPCamera被发现，必须将我们的组播地址设置为该值
 //    private static final String MULTICAST_HOST_IP = "0:0:0:0:0:ffff:efff:fffa";
 //    private static final String MULTICAST_HOST_IP = "ff00:0:0:0:0:0:efff:fffa";
+    // 比较奇怪，虽然官方规定ONVIF的组播地址是239.255.255.250,但是如果我们真的将我们的组播地址
+    // 设定为239.255.255.250的话，反而是无法收到来自"ONVIF Device Test Tool"
+    // 的probe消息的
+    // 只有将地址设定为239.1.1.234下面这种随意选定的一个组播地址，反而符合了规范(具体原因还需要继续分析)
+    private static final String MULTICAST_HOST_IP = "239.1.1.234";
 
     private static final ExecutorService PROBE_PACKET_RECEIVE_EXECUTOR = Executors.newSingleThreadExecutor();
 
@@ -211,6 +216,7 @@ public class SimpleONVIFManager {
                     Log.e(TAG, "Exception happened while get the InetAddress of " + MULTICAST_HOST_IP, e);
                 } catch (IOException e) {
                     Log.e(TAG, "Exception happened while receive the packet", e);
+                    // 重新进行尝试
                     PROBE_PACKET_RECEIVE_EXECUTOR.execute(this);
                 }
             }
