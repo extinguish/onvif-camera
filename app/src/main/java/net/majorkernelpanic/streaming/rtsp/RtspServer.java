@@ -46,6 +46,7 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.util.Log;
@@ -197,8 +198,13 @@ public class RtspServer extends Service {
      * of the server has been modified) the RTSP server.
      */
     public void start() {
-        if (!mEnabled || mRestart) stop();
+        Log.d(TAG, "mEnable ? " + mEnabled + ", mRestart ? " + mRestart);
+        if (!mEnabled || mRestart) {
+            Log.d(TAG, "start invoke stop the RtspServer");
+            stop();
+        }
         if (mEnabled && mListenerThread == null) {
+            Log.d(TAG, "create new RequestListener");
             try {
                 mListenerThread = new RequestListener();
             } catch (Exception e) {
@@ -214,6 +220,7 @@ public class RtspServer extends Service {
      * To stop the Android Service you need to call {@link android.content.Context#stopService(Intent)};
      */
     public void stop() {
+        Log.d(TAG, "Stop the RTSP Server");
         if (mListenerThread != null) {
             try {
                 mListenerThread.kill();
@@ -273,11 +280,13 @@ public class RtspServer extends Service {
 
         // If the configuration is modified, the server will adjust
         mSharedPreferences.registerOnSharedPreferenceChangeListener(mOnSharedPreferenceChangeListener);
+        Log.d(TAG, "RtspServer onCreate invoked");
         start();
     }
 
     @Override
     public void onDestroy() {
+        Log.d(TAG, "destroy RtspServer");
         stop();
         mSharedPreferences.unregisterOnSharedPreferenceChangeListener(mOnSharedPreferenceChangeListener);
     }
@@ -290,10 +299,12 @@ public class RtspServer extends Service {
                 if (port != mPort) {
                     mPort = port;
                     mRestart = true;
+                    Log.d(TAG, "port changed");
                     start();
                 }
             } else if (key.equals(KEY_ENABLED)) {
                 mEnabled = sharedPreferences.getBoolean(KEY_ENABLED, mEnabled);
+                Log.d(TAG, "start the RtspServer");
                 start();
             }
         }
@@ -357,6 +368,7 @@ public class RtspServer extends Service {
         public RequestListener() throws IOException {
             try {
                 mServer = new ServerSocket(mPort);
+                Log.d(TAG, "start the listen for outcome request");
                 start();
             } catch (BindException e) {
                 Log.e(TAG, "Port already in use !");
@@ -365,6 +377,7 @@ public class RtspServer extends Service {
             }
         }
 
+        @Override
         public void run() {
             Log.i(TAG, "RTSP server listening on port " + mServer.getLocalPort());
             while (!Thread.interrupted()) {

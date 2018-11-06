@@ -80,8 +80,6 @@ public class SpydroidActivity extends FragmentActivity {
     private RtspServer mRtspServer;
     private ONVIFHttpServer mONVIFServer;
 
-    private SimpleONVIFManager mSimpleOnvifManager;
-
     @SuppressLint("InvalidWakeLockTag")
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -125,7 +123,8 @@ public class SpydroidActivity extends FragmentActivity {
         // 开始 ONVIF-HTTP server
         this.startService(new Intent(this, ONVIFHttpServer.class));
 
-        mSimpleOnvifManager = new SimpleONVIFManager(this);
+        // 这里的设计并不是特别好，我们只是创建了一个SimpleONVIFManager实例而已
+        SimpleONVIFManager simpleOnvifManager = new SimpleONVIFManager(this);
     }
 
     public void onStart() {

@@ -843,11 +843,14 @@ public abstract class VideoStream extends MediaStream {
     private Handler mFrontCameraReadingHandler;
     private Handler mBackCameraReadingHandler;
 
-    private ByteBuffer[] mInputBuffers = mMediaCodec.getInputBuffers();
+    private ByteBuffer[] mInputBuffers;
 
     private long mNow = System.nanoTime() / 1000, mOldnow = mNow, i = 0;
 
     private void processShareBufferData(boolean isFrontCamera) {
+        if (mInputBuffers == null) {
+            mInputBuffers = mMediaCodec.getInputBuffers();
+        }
         try {
             final int readBytesCount;
             if (isFrontCamera) {
