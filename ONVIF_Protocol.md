@@ -64,7 +64,7 @@
 </s:Envelope>
 ```
 
-以下是由`ONVIF Device Test Tool`发送给我们的`Probe Packet`:
+以下是通过`ONVIF Device Test Tool`当中的手动触发`Probe`操作后，发送给我们的`Probe Packet`:
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -89,7 +89,38 @@
 </Envelope>
 ```
 
-可以看到不同的工具发送的`Probe Packet`的具体内容有些差异，我们需要对这些差异进行兼容.
+当我们使用`ONVIF Device Test Tool`当中的自动发现功能(`Discover Devices`)来寻找我们的设备时，我们通过
+`WireShark`抓到的数据包是:
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<Envelope xmlns:dn="http://www.onvif.org/ver10/network/wsdl"
+    xmlns="http://www.w3.org/2003/05/soap-envelope">
+    <Header>
+        <wsa:MessageID xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing">
+            uuid:81b611df-3d93-4422-a3f1-60c2a0064de3
+        </wsa:MessageID>
+        <wsa:To xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing">
+            urn:schemas-xmlsoap-org:ws:2005:04:discovery
+        </wsa:To>
+        <wsa:Action xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing">
+            http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe
+        </wsa:Action>
+    </Header>
+    <Body>
+        <Probe xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns="http://schemas.xmlsoap.org/ws/2005/04/discovery">
+            <Types>dn:NetworkVideoTransmitter</Types>
+            <Scopes />
+        </Probe>
+    </Body>
+</Envelope>
+```
+他们的区别只是在于`Probe`的内容不一样.
+
+但是对于不同的工具发送的`Probe Packet`的具体内容有些差异，我们需要对这些差异进行兼容.
+
+
 
 ----------------------------------------------------------------
 

@@ -177,7 +177,7 @@ public class Utilities {
         sb.append(" </wsa:EndpointReference>\r\n");
         sb.append(" <wsdd:Types>dn:NetworkVideoTransmitter</wsdd:Types>\r\n");
         sb.append(" <wsdd:Scopes>onvif://www.onvif.org/Profile/Streaming onvif://www.onvif.org/type/video_encoder onvif://www.onvif" + ".org/type/audio_encoder onvif://www.onvif.org/hardware/ONVIF-Emu onvif://www.onvif.org/name/ONVIF-Emu onvif://www.onvif.org/location/Default</wsdd:Scopes> \r\n");
-        sb.append(" <wsdd:XAddrs>http://" + serverIpAddress + ":8086/onvif/device_service</wsdd:XAddrs>\r\n");
+        sb.append(" <wsdd:XAddrs>http://" + serverIpAddress + ":8080/onvif/device_service</wsdd:XAddrs>\r\n");
         sb.append(" <wsdd:MetadataVersion>10</wsdd:MetadataVersion>\r\n");
         sb.append(" </wsdd:ProbeMatch>\r\n");
         sb.append(" </wsdd:ProbeMatches>\r\n");
@@ -187,10 +187,10 @@ public class Utilities {
     }
 
     /**
-     * @param urnUUID      例如:e32e6863-ea5e-4ee4-997e-69539d1ff2cc
-     * @param requestUUID  例如:0a6dc791-2be6-4991-9af1-454778a1917a
-     * @param localAddress
-     * @return
+     * 作用同{@link #generateDeviceProbeMatchPacket(String, String, String)}一样，
+     * 但是对应的数据格式不一样.
+     * <p>
+     * ONVIF协议的内部的soap协议支持有差别.
      */
     public static String generateDeviceProbeMatchPacket(String urnUUID, String requestUUID, String localAddress) {
         return "<s:Envelope xmlns:a=\"http://www.w3.org/2005/08/addressing\"\n" +
@@ -235,6 +235,48 @@ public class Utilities {
             throw new RuntimeException("fail to get the system telephony service");
         }
         return telephonyManager.getDeviceId();
+    }
+
+    /**
+     * @param messageId       hello消息的id, 例如0f5d604c-81ac-4abc-8010-51dbffad55f2
+     * @param appSequenceId   hello消息的序列id, 例如369a7d7b-5f87-48a4-aa9a-189edf2a8772
+     * @param endPointAddress IPCamera的设备标识, 例如37f86d35-e6ac-4241-964f-1d9ae46fb366
+     * @return hello消息
+     */
+    public static String generateHelloPacket(String messageId, String appSequenceId, String endPointAddress) {
+        String helloPacket = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n" +
+                "<soap:Envelope\n" +
+                "    xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\"\n" +
+                "    xmlns:wsa=\"http://schemas.xmlsoap.org/ws/2004/08/addressing\"\n" +
+                "    xmlns:wsd=\"http://schemas.xmlsoap.org/ws/2005/04/discovery\"\n" +
+                "    xmlns:wsdp=\"http://schemas.xmlsoap.org/ws/2006/02/devprof\">\n" +
+                "<soap:Header>\n" +
+                "    <wsa:To>\n" +
+                "        urn:schemas-xmlsoap-org:ws:2005:04:discovery\n" +
+                "    </wsa:To>\n" +
+                "    <wsa:Action>\n" +
+                "        http://schemas.xmlsoap.org/ws/2005/04/discovery/Hello\n" +
+                "    </wsa:Action>\n" +
+                "    <wsa:MessageID>\n" +
+                "        urn:uuid:" + messageId + "\n" +
+                "    </wsa:MessageID>\n" +
+                "    <wsd:AppSequence InstanceId=\"2\"\n" +
+                "        SequenceId=\"urn:uuid:" + appSequenceId + "\"\n" +
+                "        MessageNumber=\"14\">\n" +
+                "    </wsd:AppSequence>\n" +
+                "</soap:Header>\n" +
+                "<soap:Body>\n" +
+                "    <wsd:Hello>\n" +
+                "        <wsa:EndpointReference>\n" +
+                "            <wsa:Address>\n" +
+                "                urn:uuid:" + endPointAddress + "\n" +
+                "            </wsa:Address>\n" +
+                "        </wsa:EndpointReference>\n" +
+                "        <wsd:Types>wsdp:Device</wsd:Types>\n" +
+                "        <wsd:MetadataVersion>2</wsd:MetadataVersion>\n" +
+                "    </wsd:Hello>\n" +
+                "</soap:Body>";
+        return helloPacket;
     }
 
     /**
@@ -305,7 +347,7 @@ public class Utilities {
      * 但是在API-27当中，MemoryFile已经修改成通过{@link java.nio.ByteBuffer}来同
      * Direct Memory来进行交互.
      */
-    public static MemoryFile getMemoryFile(FileDescriptor descriptor, int length) {
+    static MemoryFile getMemoryFile(FileDescriptor descriptor, int length) {
         try {
             MemoryFile memoryFile = new MemoryFile("adas_stream", 1);
             memoryFile.close();

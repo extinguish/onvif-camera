@@ -128,7 +128,7 @@ public class ModOnvifServer implements HttpRequestHandler {
                 body = new InputStreamEntity(profileResponseInputStream, responseContentByteArr.length);
             } else if (requestContent.contains("GetStreamUri")) {
                 Log.d(TAG, "is GetStreamUri interface");
-                String rtspServerUrl = "rtsp://" + Utilities.getLocalDevIp(mContext) + ":" + mRtspServerPort;
+                String rtspServerUrl = "rtsp://" + Utilities.getLocalDevIp(mContext) + ":" + mRtspServerPort + "/";
                 String getStreamUriResponse = constructOnvifStreamUriResponse(rtspServerUrl);
                 byte[] responseContentByteArr = getStreamUriResponse.getBytes("UTF-8");
                 InputStream streamUriContentInputStream = new ByteArrayInputStream(responseContentByteArr);

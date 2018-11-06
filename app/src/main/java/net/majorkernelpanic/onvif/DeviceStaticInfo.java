@@ -9,8 +9,4 @@ public interface DeviceStaticInfo {
     String GET_DEVICE_SERVICES = "/onvif/device_services";
     String GET_EVENTS = "/onvif/Events";
     String GET_IMAGING = "/onvif/Imaging";
-    /**
-     * 获取推流视频的地址的URI
-     */
-    String GET_STREAM_URI = "onvif/GetStreamUri";
 }

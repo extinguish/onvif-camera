@@ -2,7 +2,6 @@ package net.majorkernelpanic.onvif;
 
 import android.app.Activity;
 import android.content.Context;
-import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -19,8 +18,9 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.NetworkInterface;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
-import java.util.Locale;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.ReentrantLock;
@@ -33,9 +33,16 @@ import javax.xml.parsers.SAXParserFactory;
  * 在SpyDroid的基础上实现ONVIF协议
  * <p>
  * 最好是将{@link SimpleONVIFManager}实现为一个{@link android.app.Service},并保证其运行在一个单独的进程当中.
- *
+ * <p>
  * 在使用ONVIF Device Test Tool做协议测试时，首先要确保ONVIF Device Test Tool与我们当前的设备可以互相ping通.
  * 然后就是确保组播地址是可行的.
+ * <p>
+ * ONVIF当中的Device Discovery Protocol的简要描述(以下的内容是直接)
+ * 作为一个兼容ONVIF协议的IPCamera会处于两种状态:Discoverable, UnDiscoverable.
+ * 如果处于Discoverable状态下的时候，IPCamera会向外发送hello消息以及自己的状态消息(以组播的方式)
+ * <p>
+ * 当IPCamera想要从Discoverable状态切换到UnDiscoverable状态的话，需要停止发送
+ * Hello消息，同时也要不再处理Probe消息，以及发送Bye消息宣告自己告别当前网络.
  */
 public class SimpleONVIFManager {
     private static final String TAG = "simpleOnVifManager";
@@ -74,29 +81,32 @@ public class SimpleONVIFManager {
      */
     // TODO: 这里的地址是错误的，但是目前我们只能用这个地址测试，因为下面的IPV6版本的地址有问题(需要换成其他的设备测试一下)
 //     private static final String MULTICAST_HOST_IP = "FF02::1";
-//    private static final String MULTICAST_HOST_IP = "239.255.255.250"; // 这是正式的ws-service要求的组播地址，如果希望我们的IPCamera被发现，必须将我们的组播地址设置为该值
+    // 这里比较奇怪，我们将当前设备的组播地址设定为239.255.255.250的话，是可以
+    // 接收到ONVIF Device Test Tool的probe消息的
+    // 但是无法被ONVIF Device Test Tool发现
+    // TODO: 现在无论我们将我们的组播地址设定为什么样子的值，都是无法接收ONVIF Device Test Tool
+    // 的直接发现，除非我们手动的进行probe消息测试
+    private static final String MULTICAST_HOST_IP = "239.255.255.250"; // 这是正式的ws-service要求的组播地址，如果希望我们的IPCamera被发现，必须将我们的组播地址设置为该值
 //    private static final String MULTICAST_HOST_IP = "0:0:0:0:0:ffff:efff:fffa";
 //    private static final String MULTICAST_HOST_IP = "ff00:0:0:0:0:0:efff:fffa";
-    // 比较奇怪，虽然官方规定ONVIF的组播地址是239.255.255.250,但是如果我们真的将我们的组播地址
-    // 设定为239.255.255.250的话，反而是无法收到来自"ONVIF Device Test Tool"
-    // 的probe消息的
-    // 只有将地址设定为239.1.1.234下面这种随意选定的一个组播地址，反而符合了规范(具体原因还需要继续分析)
-    private static final String MULTICAST_HOST_IP = "239.1.1.234";
+    // 一个普通的合法的IPV4组播地址
+    // private static final String MULTICAST_HOST_IP = "239.1.1.234";
 
     private static final ExecutorService PROBE_PACKET_RECEIVE_EXECUTOR = Executors.newSingleThreadExecutor();
 
-    private static final int PACKET_SEND_TIMEOUT = 10000; // 10 seconds
+    private static final int PACKET_SO_TIMEOUT = 30000; // 30 seconds
 
-    private static final int PROBE_PACKET_SEND_OUT_INTERVAL = 500; // 500ms
+    private static final int HELLO_PACKET_SEND_OUT_INTERVAL = 1000; // 1 second
 
     private WifiManager.MulticastLock multicastLock;
     private MulticastSocket multicastSocket;
+    private final String devId;
 
-    private static final boolean DEBUG_SEND_PACKET = false;
+    private static final boolean SEND_HELLO_PACKET = false;
 
     public SimpleONVIFManager(Context context) {
         this.context = context;
-
+        devId = Utilities.getDevId(context);
         WifiManager wifiManager = (WifiManager) context.getApplicationContext()
                 .getSystemService(Context.WIFI_SERVICE);
         if (wifiManager != null) {
@@ -109,24 +119,27 @@ public class SimpleONVIFManager {
         serverIp = Utilities.getLocalDevIp(context);
         initData();
 
-        if (DEBUG_SEND_PACKET) {
-            startSendProbePacket();
+        if (SEND_HELLO_PACKET) {
+            startSendHelloPacket();
         }
 
         receiveProbePacket();
     }
 
     /**
-     * 对于IPCamera来说，不需要发送packet,只需要接收来自IPCameraViewer发送的探测packet.
-     * 这里只是为了测试，稍后进行移除.
+     * 当IPCamera处于Discoverable状态下时，需要向外发送"hello"的组播包.
      */
-    private void startSendProbePacket() {
+    private void startSendHelloPacket() {
         sProbePacketPoster.post(new Runnable() {
             @Override
             public void run() {
-                byte[] data = {};
-                sendProbePacket(data);
-                sProbePacketPoster.postDelayed(this, PROBE_PACKET_SEND_OUT_INTERVAL);
+                String messageId = UUID.randomUUID().toString();
+                String appSequenceId = UUID.randomUUID().toString();
+                String helloPacket = Utilities.generateHelloPacket(messageId, appSequenceId, devId);
+
+                sendPacket(helloPacket.getBytes());
+
+                sProbePacketPoster.postDelayed(this, HELLO_PACKET_SEND_OUT_INTERVAL);
             }
         });
     }
@@ -140,8 +153,8 @@ public class SimpleONVIFManager {
             }
             InetAddress groupAddress = InetAddress.getByName(MULTICAST_HOST_IP);
             MulticastSocket multicastSocket = new MulticastSocket(MULTICAST_PORT);
-            multicastSocket.setTimeToLive(10);
-            multicastSocket.setSoTimeout(PACKET_SEND_TIMEOUT);
+            multicastSocket.setTimeToLive(255);
+            multicastSocket.setSoTimeout(PACKET_SO_TIMEOUT);
             multicastSocket.setNetworkInterface(NetworkInterface.getByName("wlan0"));
             multicastSocket.joinGroup(groupAddress);
             return multicastSocket;
@@ -164,7 +177,7 @@ public class SimpleONVIFManager {
         application.setDeviceBackBean(deviceBackBean);
     }
 
-    private void sendProbePacket(byte[] data) {
+    private void sendPacket(byte[] data) {
         try {
             InetAddress groupAddress = InetAddress.getByName(MULTICAST_HOST_IP);
             DatagramPacket packet = new DatagramPacket(data,
@@ -217,7 +230,12 @@ public class SimpleONVIFManager {
                 } catch (UnknownHostException e) {
                     Log.e(TAG, "Exception happened while get the InetAddress of " + MULTICAST_HOST_IP, e);
                 } catch (IOException e) {
-                    Log.e(TAG, "Exception happened while receive the packet", e);
+                    if (e instanceof SocketTimeoutException) {
+                        // 接收probe消息超时，重新准备接收.
+                        Log.w(TAG, "start monitor probe message again");
+                    } else {
+                        Log.e(TAG, "Exception happened while receive the packet", e);
+                    }
                     // 重新进行尝试
                     PROBE_PACKET_RECEIVE_EXECUTOR.execute(this);
                 }
