@@ -128,7 +128,6 @@ public class SpydroidApplication extends android.app.Application {
             @Override
             public void onGetCameraFileResult(boolean success) {
                 Log.d(TAG, "get system share buffer memory file descriptor --> " + success);
-
             }
         });
 
@@ -167,25 +166,35 @@ public class SpydroidApplication extends android.app.Application {
     private OnSharedPreferenceChangeListener mOnSharedPreferenceChangeListener = new OnSharedPreferenceChangeListener() {
         @Override
         public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-            if (key.equals("video_resX") || key.equals("video_resY")) {
-                videoQuality.resX = sharedPreferences.getInt("video_resX", 0);
-                videoQuality.resY = sharedPreferences.getInt("video_resY", 0);
-            } else if (key.equals("video_framerate")) {
-                videoQuality.framerate = Integer.parseInt(sharedPreferences.getString("video_framerate", "0"));
-            } else if (key.equals("video_bitrate")) {
-                videoQuality.bitrate = Integer.parseInt(sharedPreferences.getString("video_bitrate", "0")) * 1000;
-            } else if (key.equals("audio_encoder") || key.equals("stream_audio")) {
-                audioEncoder = Integer.parseInt(sharedPreferences.getString("audio_encoder", String.valueOf(audioEncoder)));
-                SessionBuilder.getInstance().setAudioEncoder(audioEncoder);
-                if (!sharedPreferences.getBoolean("stream_audio", false))
-                    SessionBuilder.getInstance().setAudioEncoder(0);
-            } else if (key.equals("stream_video") || key.equals("video_encoder")) {
-                videoEncoder = Integer.parseInt(sharedPreferences.getString("video_encoder", String.valueOf(videoEncoder)));
-                SessionBuilder.getInstance().setVideoEncoder(videoEncoder);
-                if (!sharedPreferences.getBoolean("stream_video", true))
-                    SessionBuilder.getInstance().setVideoEncoder(0);
-            } else if (key.equals("notification_enabled")) {
-                notificationEnabled = sharedPreferences.getBoolean("notification_enabled", true);
+            switch (key) {
+                case "video_resX":
+                case "video_resY":
+                    videoQuality.resX = sharedPreferences.getInt("video_resX", 0);
+                    videoQuality.resY = sharedPreferences.getInt("video_resY", 0);
+                    break;
+                case "video_framerate":
+                    videoQuality.framerate = Integer.parseInt(sharedPreferences.getString("video_framerate", "0"));
+                    break;
+                case "video_bitrate":
+                    videoQuality.bitrate = Integer.parseInt(sharedPreferences.getString("video_bitrate", "0")) * 1000;
+                    break;
+                case "audio_encoder":
+                case "stream_audio":
+                    audioEncoder = Integer.parseInt(sharedPreferences.getString("audio_encoder", String.valueOf(audioEncoder)));
+                    SessionBuilder.getInstance().setAudioEncoder(audioEncoder);
+                    if (!sharedPreferences.getBoolean("stream_audio", false))
+                        SessionBuilder.getInstance().setAudioEncoder(0);
+                    break;
+                case "stream_video":
+                case "video_encoder":
+                    videoEncoder = Integer.parseInt(sharedPreferences.getString("video_encoder", String.valueOf(videoEncoder)));
+                    SessionBuilder.getInstance().setVideoEncoder(videoEncoder);
+                    if (!sharedPreferences.getBoolean("stream_video", true))
+                        SessionBuilder.getInstance().setVideoEncoder(0);
+                    break;
+                case "notification_enabled":
+                    notificationEnabled = sharedPreferences.getBoolean("notification_enabled", true);
+                    break;
             }
         }
     };

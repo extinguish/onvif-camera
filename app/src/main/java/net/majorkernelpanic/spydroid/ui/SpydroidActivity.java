@@ -124,7 +124,8 @@ public class SpydroidActivity extends FragmentActivity {
         this.startService(new Intent(this, ONVIFHttpServer.class));
 
         // 这里的设计并不是特别好，我们只是创建了一个SimpleONVIFManager实例而已
-        SimpleONVIFManager simpleOnvifManager = new SimpleONVIFManager(this);
+        // 理论上初始化方法应该同构造函数分开进行
+        new SimpleONVIFManager(this);
     }
 
     public void onStart() {
@@ -160,23 +161,8 @@ public class SpydroidActivity extends FragmentActivity {
     @Override
     public void onStop() {
         super.onStop();
-        // A WakeLock should only be released when isHeld() is true !
-        if (mWakeLock.isHeld()) {
-            mWakeLock.release();
-        }
-        if (mHttpServer != null) {
-            mHttpServer.removeCallbackListener(mHttpCallbackListener);
-        }
-        unbindService(mHttpServiceConnection);
-        if (mRtspServer != null) {
-            mRtspServer.removeCallbackListener(mRtspCallbackListener);
-        }
-        unbindService(mRtspServiceConnection);
-        if (mONVIFServer != null) {
-            mONVIFServer.removeCallbackListener(mONVIFCallbackListener);
-        }
-
-        unbindService(mONVIFHttpServiceConnection);
+        // 我们在onStop时，不进行服务的关闭
+        // 只是在onDestroy时对服务断开连接和销毁
     }
 
     @Override
@@ -195,6 +181,24 @@ public class SpydroidActivity extends FragmentActivity {
     public void onDestroy() {
         Log.d(TAG, "SpydroidActivity destroyed");
         super.onDestroy();
+
+        // A WakeLock should only be released when isHeld() is true !
+        if (mWakeLock.isHeld()) {
+            mWakeLock.release();
+        }
+        if (mHttpServer != null) {
+            mHttpServer.removeCallbackListener(mHttpCallbackListener);
+        }
+        unbindService(mHttpServiceConnection);
+        if (mRtspServer != null) {
+            mRtspServer.removeCallbackListener(mRtspCallbackListener);
+        }
+        unbindService(mRtspServiceConnection);
+        if (mONVIFServer != null) {
+            mONVIFServer.removeCallbackListener(mONVIFCallbackListener);
+        }
+
+        unbindService(mONVIFHttpServiceConnection);
     }
 
     @Override
@@ -276,7 +280,6 @@ public class SpydroidActivity extends FragmentActivity {
     };
 
     private RtspServer.CallbackListener mRtspCallbackListener = new RtspServer.CallbackListener() {
-
         @Override
         public void onError(RtspServer server, Exception e, int error) {
             // We alert the user that the port is already used by another app.
@@ -452,7 +455,5 @@ public class SpydroidActivity extends FragmentActivity {
             }
             return null;
         }
-
     }
-
 }

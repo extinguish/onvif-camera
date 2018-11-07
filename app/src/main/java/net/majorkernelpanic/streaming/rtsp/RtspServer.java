@@ -276,6 +276,7 @@ public class RtspServer extends Service {
         // Let's restore the state of the service
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         mPort = Integer.parseInt(mSharedPreferences.getString(KEY_PORT, String.valueOf(mPort)));
+        Log.d(TAG, "the port we read from SharedPreference file are : " + mPort);
         mEnabled = mSharedPreferences.getBoolean(KEY_ENABLED, mEnabled);
 
         // If the configuration is modified, the server will adjust
@@ -296,6 +297,7 @@ public class RtspServer extends Service {
         public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
             if (key.equals(KEY_PORT)) {
                 int port = Integer.parseInt(sharedPreferences.getString(KEY_PORT, String.valueOf(mPort)));
+                Log.d(TAG, "SharedPreference updated, and the port value we read out are " + port);
                 if (port != mPort) {
                     mPort = port;
                     mRestart = true;
@@ -371,7 +373,10 @@ public class RtspServer extends Service {
                 Log.d(TAG, "start the listen for outcome request");
                 start();
             } catch (BindException e) {
-                Log.e(TAG, "Port already in use !");
+                // 这里创建ServerSocket失败,不一定是因为
+                // 我们要绑定到的端口号被其他服务占用,也可能是因为
+                // 因为安全限制的因素,导致我们无法绑定到这个端口号当中
+                Log.e(TAG, "Exception happened while using port of " + mPort, e);
                 postError(e, ERROR_BIND_FAILED);
                 throw e;
             }
