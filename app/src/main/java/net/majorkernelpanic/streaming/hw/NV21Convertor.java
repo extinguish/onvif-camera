@@ -171,4 +171,21 @@ public class NV21Convertor {
         return data;
     }
 
+    /**
+     * 获取默认配置参数的{@link NV21Convertor},主要是用于ShareBuffer使用
+     * @return
+     */
+    public static NV21Convertor getDefaultNV21Convertor() {
+        NV21Convertor nv21Convertor = new NV21Convertor();
+        nv21Convertor.setSize(640, 480);
+        nv21Convertor.setSliceHeigth(0);
+        nv21Convertor.setStride(0);
+        nv21Convertor.setYPadding(0);
+        nv21Convertor.setPlanar(false);
+        nv21Convertor.setColorPanesReversed(false);
+        nv21Convertor.setColorPanesReversed(true);
+
+        return nv21Convertor;
+    }
+
 }

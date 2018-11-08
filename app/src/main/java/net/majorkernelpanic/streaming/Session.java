@@ -25,6 +25,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.concurrent.CountDownLatch;
 
+import net.majorkernelpanic.spydroid.SpydroidApplication;
 import net.majorkernelpanic.streaming.audio.AudioQuality;
 import net.majorkernelpanic.streaming.audio.AudioStream;
 import net.majorkernelpanic.streaming.exceptions.CameraInUseException;
@@ -508,7 +509,9 @@ public class Session {
      * Starts a stream in a synchronous manner.
      * Throws exceptions in addition to calling a callback.
      *
-     * @param id The id of the stream to start(这里的id值主要是为了区分音频流和视频流)
+     * @param id The id of the stream to start(这里的id值主要是为了区分音频流和视频流);
+     *           0是audio stream
+     *           1是video stream
      **/
     public void syncStart(int id)
             throws CameraInUseException,
@@ -562,16 +565,16 @@ public class Session {
             InvalidSurfaceException, IOException {
         Log.v(TAG, "Session --> sync start");
         syncStart(1);
-        try {
-            syncStart(0);
-        } catch (RuntimeException e) {
-            syncStop(1);
-            throw e;
-        } catch (IOException e) {
-            syncStop(1);
-            throw e;
+        // 如果我们不使用ShareBuffer的话,就传输AudioStream,否则不进行
+        if (!SpydroidApplication.USE_SHARE_BUFFER_DATA) {
+            try {
+                syncStart(0);
+            } catch (final Exception e) {
+                Log.e(TAG, "RuntimeException happened while start audio stream, so stop the video stream either");
+                syncStop(1);
+                throw e;
+            }
         }
-
     }
 
     /**
@@ -592,6 +595,7 @@ public class Session {
      * @param id The id of the stream to stop
      **/
     private void syncStop(final int id) {
+        Log.d(TAG, "stop stream with TRACK id of " + id);
         Stream stream = id == 0 ? mAudioStream : mVideoStream;
         if (stream != null) {
             stream.stop();

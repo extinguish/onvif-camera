@@ -98,5 +98,4 @@ public class MP4Config {
         Log.d(TAG, "SPS: " + mSPS);
         return mSPS;
     }
-
 }

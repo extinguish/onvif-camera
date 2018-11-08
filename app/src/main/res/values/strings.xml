@@ -2,7 +2,7 @@
 <resources>
     <string name="options">Options</string>
     <string name="quit">Quit</string>
-    <string name="app_name">Spydroid</string>
+    <string name="app_name">AdasIPCamera</string>
     <string name="description">Capture live video and audio streaming from your smartphone with Spydroid</string>
     <string name="line1">In chrome or firefox type</string>
     <string name="line2">In VLC open</string>

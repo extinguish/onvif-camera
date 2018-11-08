@@ -65,12 +65,12 @@ public class EncoderDebugger {
      * If this is set to false the test will be run only once and the result
      * will be saved in the shared preferences.
      */
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = true;
 
     /**
      * Set this to true to see more logs.
      */
-    private static final boolean VERBOSE = false;
+    private static final boolean VERBOSE = true;
 
     /**
      * Will be incremented every time this test is modified.
@@ -180,6 +180,7 @@ public class EncoderDebugger {
         // If testing the phone again is not needed,
         // we just restore the result from the shared preferences
         if (!checkTestNeeded()) {
+            Log.d(TAG, "start check test ");
             String resolution = mWidth + "x" + mHeight + "-";
 
             boolean success = mPreferences.getBoolean(PREF_PREFIX + resolution + "success", false);
@@ -222,7 +223,7 @@ public class EncoderDebugger {
 
                 mEncoderName = encoder.name;
                 mEncoderColorFormat = encoder.formats[j];
-
+                Log.d(TAG, "testing with encoder of " + encoder.name + ", with format of " + mEncoderColorFormat);
                 if (VERBOSE)
                     Log.v(TAG, ">> Test " + (n++) + "/" + count + ": " + mEncoderName + " with color format " + mEncoderColorFormat + " at " + mWidth + "x" + mHeight);
 
@@ -243,8 +244,9 @@ public class EncoderDebugger {
                     configureEncoder();
                     searchSPSandPPS();
 
-                    if (VERBOSE)
+                    if (VERBOSE) {
                         Log.v(TAG, "SPS and PPS in b64: SPS=" + mB64SPS + ", PPS=" + mB64PPS);
+                    }
 
                     // Feeds the encoder with an image repeatidly to produce some NAL units
                     encode();
@@ -317,7 +319,7 @@ public class EncoderDebugger {
                     Log.v(TAG, "The encoder " + mEncoderName + " is usable with resolution " + mWidth + "x" + mHeight);
                     return;
 
-                } catch (Exception e) {
+                } catch (final Exception e) {
                     StringWriter sw = new StringWriter();
                     PrintWriter pw = new PrintWriter(sw);
                     e.printStackTrace(pw);
@@ -327,6 +329,7 @@ public class EncoderDebugger {
                     mErrorLog += str + "\n" + stack;
                     e.printStackTrace();
                 } finally {
+                    Log.e(TAG, "release the encoder");
                     releaseEncoder();
                 }
             }
@@ -614,11 +617,13 @@ public class EncoderDebugger {
         if (mDecoder != null) {
             try {
                 mDecoder.stop();
-            } catch (Exception ignore) {
+            } catch (Exception e) {
+                Log.e(TAG, "fail to stop the decoder");
             }
             try {
                 mDecoder.release();
-            } catch (Exception ignore) {
+            } catch (Exception e) {
+                Log.e(TAG, "fail to release the decoder");
             }
         }
     }
@@ -707,48 +712,6 @@ public class EncoderDebugger {
         return elapsed;
     }
 
-    private long encode() {
-        int n = 0;
-        long elapsed = 0, now = timestamp();
-        int encOutputIndex = 0, encInputIndex = 0;
-        BufferInfo info = new BufferInfo();
-        ByteBuffer[] encInputBuffers = mEncoder.getInputBuffers();
-        ByteBuffer[] encOutputBuffers = mEncoder.getOutputBuffers();
-
-        while (elapsed < 5000000) {
-            // Feeds the encoder with an image
-            encInputIndex = mEncoder.dequeueInputBuffer(1000000 / FRAMERATE);
-            if (encInputIndex >= 0) {
-                check(encInputBuffers[encInputIndex].capacity() >= mData.length, "The input buffer is not big enough.");
-                encInputBuffers[encInputIndex].clear();
-                encInputBuffers[encInputIndex].put(mData, 0, mData.length);
-                mEncoder.queueInputBuffer(encInputIndex, 0, mData.length, timestamp(), 0);
-            } else {
-                if (VERBOSE) Log.d(TAG, "No buffer available !");
-            }
-
-            // Tries to get a NAL unit
-            encOutputIndex = mEncoder.dequeueOutputBuffer(info, 1000000 / FRAMERATE);
-            if (encOutputIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
-                encOutputBuffers = mEncoder.getOutputBuffers();
-            } else if (encOutputIndex >= 0) {
-                mVideo[n] = new byte[info.size];
-                encOutputBuffers[encOutputIndex].clear();
-                encOutputBuffers[encOutputIndex].get(mVideo[n++], 0, info.size);
-                mEncoder.releaseOutputBuffer(encOutputIndex, false);
-                if (n >= NB_ENCODED) {
-                    flushMediaCodec(mEncoder);
-                    return elapsed;
-                }
-            }
-
-            elapsed = timestamp() - now;
-        }
-
-        throw new RuntimeException("The encoder is too slow.");
-
-    }
-
     /**
      * @param withPrefix If set to true, the decoder will be fed with NALs preceeded with 0x00000001.
      * @return How long it took to decode all the NALs
@@ -820,9 +783,50 @@ public class EncoderDebugger {
         throw new RuntimeException("The decoder did not decode anything.");
     }
 
+    private long encode() {
+        int n = 0;
+        long elapsed = 0, now = timestamp();
+        int encOutputIndex = 0, encInputIndex = 0;
+        BufferInfo info = new BufferInfo();
+        ByteBuffer[] encInputBuffers = mEncoder.getInputBuffers();
+        ByteBuffer[] encOutputBuffers = mEncoder.getOutputBuffers();
+
+        while (elapsed < 5000000) {
+            // Feeds the encoder with an image
+            encInputIndex = mEncoder.dequeueInputBuffer(1000000 / FRAMERATE);
+            if (encInputIndex >= 0) {
+                check(encInputBuffers[encInputIndex].capacity() >= mData.length, "The input buffer is not big enough.");
+                encInputBuffers[encInputIndex].clear();
+                encInputBuffers[encInputIndex].put(mData, 0, mData.length);
+                mEncoder.queueInputBuffer(encInputIndex, 0, mData.length, timestamp(), 0);
+            } else {
+                if (VERBOSE) Log.d(TAG, "No buffer available !");
+            }
+
+            // Tries to get a NAL unit
+            encOutputIndex = mEncoder.dequeueOutputBuffer(info, 1000000 / FRAMERATE);
+            if (encOutputIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
+                encOutputBuffers = mEncoder.getOutputBuffers();
+            } else if (encOutputIndex >= 0) {
+                mVideo[n] = new byte[info.size];
+                encOutputBuffers[encOutputIndex].clear();
+                encOutputBuffers[encOutputIndex].get(mVideo[n++], 0, info.size);
+                mEncoder.releaseOutputBuffer(encOutputIndex, false);
+                if (n >= NB_ENCODED) {
+                    flushMediaCodec(mEncoder);
+                    return elapsed;
+                }
+            }
+
+            elapsed = timestamp() - now;
+        }
+
+        throw new RuntimeException("The encoder is too slow.");
+    }
+
     /**
      * Makes sure the NAL has a header or not.
-     *
+     * <p>
      * withPrefix If set to true, the NAL will be preceded with 0x00000001.
      */
     private boolean hasPrefix(byte[] nal) {

@@ -26,6 +26,7 @@ import java.net.InetAddress;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
+import net.majorkernelpanic.spydroid.SpydroidApplication;
 import net.majorkernelpanic.streaming.SessionBuilder;
 import net.majorkernelpanic.streaming.exceptions.ConfNotSupportedException;
 import net.majorkernelpanic.streaming.exceptions.StorageUnavailableException;
@@ -42,6 +43,8 @@ import android.os.Environment;
 import android.service.textservice.SpellCheckerService.Session;
 import android.util.Base64;
 import android.util.Log;
+
+import org.spongycastle.asn1.esf.SPuri;
 
 /**
  * A class for streaming H.264 from the camera of an android device using RTP.
@@ -118,9 +121,21 @@ public class H264Stream extends VideoStream {
         Log.d(TAG, "Configure H264 Stream");
         mMode = mRequestedMode;
         mQuality = mRequestedQuality.clone();
+
         // 配置时,会根据视频要传输的分辨率以及比特率来决定采用的编码器
         // 这种策略很牛逼
-        mConfig = testH264();
+        // 如果我们使用ShareBuffer时,就不需要使用自动调整参数设置,而是使用我们固定好的参数
+        if (!SpydroidApplication.USE_SHARE_BUFFER_DATA) {
+            mConfig = testH264();
+        } else {
+            // 这是针对前路镜头的
+            mQuality.resX = 640;
+            mQuality.resY = 480;
+            final String sps = "J0IAFKaBQfE=";
+            final String pps = "KM48gA==";
+
+            mConfig = new MP4Config(sps, pps);
+        }
     }
 
     /**
@@ -131,8 +146,11 @@ public class H264Stream extends VideoStream {
      * and determines the pps and sps. Should not be called by the UI thread.
      **/
     private MP4Config testH264() throws IllegalStateException, IOException {
-        if (mMode != MODE_MEDIARECORDER_API) return testMediaCodecAPI();
-        else return testMediaRecorderAPI();
+        if (mMode != MODE_MEDIARECORDER_API) {
+            return testMediaCodecAPI();
+        } else {
+            return testMediaRecorderAPI();
+        }
     }
 
     @SuppressLint("NewApi")
@@ -148,6 +166,7 @@ public class H264Stream extends VideoStream {
                 mMode = MODE_MEDIARECORDER_API;
             }
             EncoderDebugger debugger = EncoderDebugger.debug(mSettings, mQuality.resX, mQuality.resY);
+            Log.d(TAG, "the sps are " + debugger.getB64SPS() + ", pps are " + debugger.getB64PPS());
             return new MP4Config(debugger.getB64SPS(), debugger.getB64PPS());
         } catch (Exception e) {
             // Fallback on the old streaming method using the MediaRecorder API
