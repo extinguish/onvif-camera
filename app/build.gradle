@@ -5,7 +5,7 @@ android {
     buildToolsVersion '28.0.3'
 
     defaultConfig {
-        applicationId "net.majorkernelpanic.spydroid"
+        applicationId "com.adasplus.ipcamera"
         minSdkVersion 14
         targetSdkVersion 21
     }

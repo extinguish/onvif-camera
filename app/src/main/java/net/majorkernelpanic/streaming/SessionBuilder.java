@@ -36,6 +36,7 @@ import net.majorkernelpanic.streaming.video.VideoStream;
 import android.content.Context;
 import android.hardware.Camera.CameraInfo;
 import android.preference.PreferenceManager;
+import android.util.Log;
 
 /**
  * Call {@link #getInstance()} to get access to the SessionBuilder.
@@ -127,23 +128,29 @@ public class SessionBuilder {
         session.setTimeToLive(mTimeToLive);
         session.setCallback(mCallback);
 
+        Log.d(TAG, "current audio encoder are " + mAudioEncoder);
         switch (mAudioEncoder) {
             case AUDIO_AAC:
+                Log.d(TAG, "add audio AAC track");
                 AACStream stream = new AACStream();
                 session.addAudioTrack(stream);
                 if (mContext != null)
                     stream.setPreferences(PreferenceManager.getDefaultSharedPreferences(mContext));
                 break;
             case AUDIO_AMRNB:
+                Log.d(TAG, "add audio AMRNB track");
                 session.addAudioTrack(new AMRNBStream());
                 break;
         }
 
+        Log.d(TAG, "current video encoder are " + mVideoEncoder);
         switch (mVideoEncoder) {
             case VIDEO_H263:
+                Log.d(TAG, "add H263Stream");
                 session.addVideoTrack(new H263Stream(mCamera));
                 break;
             case VIDEO_H264:
+                Log.d(TAG, "add H264Stream");
                 H264Stream stream = new H264Stream(mCamera);
                 if (mContext != null)
                     stream.setPreferences(PreferenceManager.getDefaultSharedPreferences(mContext));

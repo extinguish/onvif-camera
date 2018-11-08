@@ -561,6 +561,9 @@ public abstract class VideoStream extends MediaStream {
                         } else {
                             Log.e(TAG, "No buffer available !");
                         }
+                    } catch (final Exception e) {
+                        Log.e(TAG, "Exception happened ", e);
+                        // TODO: 异常发生,需要停止数据传输(在某些情况下,如果ffplay关闭掉的话,会导致这里MediaCodec状态异常)
                     } finally {
                         mCamera.addCallbackBuffer(data);
                     }
@@ -855,10 +858,10 @@ public abstract class VideoStream extends MediaStream {
             final int readBytesCount;
             if (isFrontCamera) {
                 readBytesCount = mFrontCameraMemFile.readBytes(FRONT_CAMERA_DATA_BUF, 1, 0, FRONT_CAMERA_FRAME_LEN);
-                Log.d(TAG, "encode : FRONT CAMERA --> with bytes length of " + readBytesCount);
+                Log.v(TAG, "Read front camera data with length of :  " + readBytesCount);
             } else {
                 readBytesCount = mBackCameraMemFile.readBytes(BACK_CAMERA_DATA_BUF, 1, 0, BACK_CAMERA_FRAME_LEN);
-                Log.d(TAG, "encode : BACK CAMERA --> with bytes length of " + readBytesCount);
+                Log.v(TAG, "Read back camera data with length of : " + readBytesCount);
             }
             // TODO: 然后对读取出的数据进行编码操作
             // TODO: 这里默认采用的是前置摄像头读取出的share buffer数据

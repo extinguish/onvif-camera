@@ -147,10 +147,11 @@ public class SpydroidApplication extends android.app.Application {
                 Integer.parseInt(settings.getString("video_framerate", String.valueOf(videoQuality.framerate))),
                 Integer.parseInt(settings.getString("video_bitrate", String.valueOf(videoQuality.bitrate / 1000))) * 1000);
 
+        // 在这里我们将默认推送videoStream,而不是audioStream
         SessionBuilder.getInstance()
                 .setContext(getApplicationContext())
-                .setAudioEncoder(!settings.getBoolean("stream_audio", true) ? 0 : audioEncoder)
-                .setVideoEncoder(!settings.getBoolean("stream_video", false) ? 0 : videoEncoder)
+                .setAudioEncoder(!settings.getBoolean("stream_audio", false) ? 0 : audioEncoder)
+                .setVideoEncoder(!settings.getBoolean("stream_video", true) ? 0 : videoEncoder)
                 .setVideoQuality(videoQuality);
 
         // Listens to changes of preferences

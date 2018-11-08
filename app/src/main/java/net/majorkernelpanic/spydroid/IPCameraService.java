@@ -22,8 +22,8 @@ import net.majorkernelpanic.streaming.rtsp.RtspServer;
  * <p>
  * 该服务由KyLauncher统一来协调管理启动,对于普通应用的话,不需要管理该应用.
  */
-public class SimpleIPCameraService extends Service {
-    private static final String TAG = "SimpleIPCameraService";
+public class IPCameraService extends Service {
+    private static final String TAG = "IPCameraService";
 
     private CustomHttpServer mHttpServer;
     private RtspServer mRtspServer;
@@ -65,8 +65,8 @@ public class SimpleIPCameraService extends Service {
      * The Binder you obtain when a connection with the Service is established.
      */
     public class LocalBinder extends Binder {
-        public SimpleIPCameraService getService() {
-            return SimpleIPCameraService.this;
+        public IPCameraService getService() {
+            return IPCameraService.this;
         }
     }
 

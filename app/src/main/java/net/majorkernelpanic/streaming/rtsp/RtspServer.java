@@ -260,9 +260,12 @@ public class RtspServer extends Service {
         long bitrate = 0;
         for (Session session : mSessions.keySet()) {
             if (session != null) {
-                if (session.isStreaming()) bitrate += session.getBitrate();
+                if (session.isStreaming()) {
+                    bitrate += session.getBitrate();
+                }
             }
         }
+        Log.v(TAG, "the bit rate we get are " + bitrate);
         return bitrate;
     }
 
@@ -355,6 +358,7 @@ public class RtspServer extends Service {
      * @return A proper session
      */
     protected Session handleRequest(String uri, Socket client) throws IllegalStateException {
+        Log.d(TAG, "the request uri --> " + uri);
         Session session = UriParser.parse(uri);
         session.setOrigin(client.getLocalAddress().getHostAddress());
         if (session.getDestination() == null) {
@@ -694,7 +698,7 @@ public class RtspServer extends Service {
             }
 
             // It's not an error, it's just easier to follow what's happening in logcat with the request in red
-            Log.e(TAG, request.method + " " + request.uri);
+            Log.e(TAG, "request --> " + request.method + " " + request.uri);
 
             return request;
         }
