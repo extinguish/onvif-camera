@@ -213,6 +213,7 @@ public class RtspClient {
      * Should be called of the main thread !
      */
     public void startStream() {
+        Log.d(TAG, "RTSP Clientstart streaming");
         if (mTmpParameters.host == null)
             throw new IllegalStateException("setServerAddress(String,int) has not been called !");
         if (mTmpParameters.session == null)

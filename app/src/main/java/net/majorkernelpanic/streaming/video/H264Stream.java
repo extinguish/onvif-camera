@@ -89,8 +89,9 @@ public class H264Stream extends VideoStream {
      */
     @Override
     public synchronized String getSessionDescription() throws IllegalStateException {
-        if (mConfig == null)
+        if (mConfig == null) {
             throw new IllegalStateException("You need to call configure() first !");
+        }
         return "m=video " + String.valueOf(getDestinationPorts()[0]) + " RTP/AVP 96\r\n" +
                 "a=rtpmap:96 H264/90000\r\n" +
                 "a=fmtp:96 packetization-mode=1;profile-level-id=" + mConfig.getProfileLevel() + ";sprop-parameter-sets=" + mConfig.getB64SPS() + "," + mConfig.getB64PPS() + ";\r\n";

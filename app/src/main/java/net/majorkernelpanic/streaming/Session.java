@@ -567,6 +567,7 @@ public class Session {
         syncStart(1);
         // 如果我们不使用ShareBuffer的话,就传输AudioStream,否则不进行
         if (!SpydroidApplication.USE_SHARE_BUFFER_DATA) {
+            Log.d(TAG, "start the AudioStream");
             try {
                 syncStart(0);
             } catch (final Exception e) {
@@ -606,6 +607,7 @@ public class Session {
      * Stops all existing streams in a syncronous manner.
      */
     public void syncStop() {
+        Log.d(TAG, "sync stop session ");
         syncStop(0);
         syncStop(1);
         postSessionStopped();

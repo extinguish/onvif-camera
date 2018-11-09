@@ -37,7 +37,9 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.MemoryFile;
 import android.os.Message;
+import android.support.annotation.NonNull;
 import android.util.Log;
+import android.util.Range;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceHolder.Callback;
@@ -324,7 +326,7 @@ public abstract class VideoStream extends MediaStream {
      * Stops the stream.
      */
     public synchronized void stop() {
-        Log.e(TAG, "stop streaming ", new Exception());
+        Log.e(TAG, "stop streaming ");
         if (SpydroidApplication.USE_SHARE_BUFFER_DATA) {
             // 我们此时停止从ShareBuffer当中读取相机数据
             if (mMode == MODE_MEDIACODEC_API_2) {
@@ -563,25 +565,38 @@ public abstract class VideoStream extends MediaStream {
 
             mStreaming = true;
         } else {
+            Log.d(TAG, "thread name " + Thread.currentThread().getName());
             Log.d(TAG, "encode the ShareBuffer data");
             mConvertor = NV21Convertor.getDefaultNV21Convertor();
             // FIXME: 这里的encoder本身是从系统当中获取的,不是固定的
             // 我们最好也是通过EncoderDebugger来获取到编码器的名称,而不是直接固定写死
-            final String encoderName = "OMX.google.h264.encoder";
-            final int encoderColorFormat = 19;
+            // final String encoderName = "OMX.google.h264.encoder";
+            final String MIME_TYPE = "video/avc";
 
-            mMediaCodec = MediaCodec.createByCodecName(encoderName);
-            MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", mQuality.resX, mQuality.resY);
-            mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, mQuality.bitrate);
-            mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, mQuality.framerate);
-            mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, encoderColorFormat);
+            // mMediaCodec = MediaCodec.createByCodecName(encoderName);
+            mMediaCodec = MediaCodec.createEncoderByType(MIME_TYPE);
+            final int width = 640;
+            final int height = 480;
+            MediaFormat mediaFormat = MediaFormat.createVideoFormat(MIME_TYPE, width, height);
+
+            // final int bitRate = width * height * 3 / 2;
+            final int bitRate = 115200;
+            mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitRate);
+            mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 15);
+            mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
             mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
             mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+            MediaFormat configuredFormat = mMediaCodec.getOutputFormat();
+            Log.d(TAG, "configured media format are " + configuredFormat.toString());
+            Range<Integer> heightRange = mMediaCodec.getCodecInfo().getCapabilitiesForType(MIME_TYPE).getVideoCapabilities().getSupportedHeights();
+            Range<Integer> widthRange = mMediaCodec.getCodecInfo().getCapabilitiesForType(MIME_TYPE).getVideoCapabilities().getSupportedWidths();
+            Log.d(TAG, "width range --> " + widthRange.getLower() + " to " + widthRange.getUpper() + "," +
+                    "height range --> " + heightRange.getLower() + " to " + heightRange.getUpper());
+
             mMediaCodec.start();
 
             // 发送消息，开始读取ShareBuffer当中的数据
-            mFrontCameraReadingHandler.sendEmptyMessage(MSG_READ_FRONT_STREAM_DATA);
-            // 然后在processShareBufferData()当中对读取出来的数据进行编码
+            mFrontCameraReadingHandler.sendEmptyMessageDelayed(MSG_READ_FRONT_STREAM_DATA, 3000);
 
             mPacketizer.setDestination(mDestination, mRtpPort, mRtcpPort);
             mPacketizer.setInputStream(new MediaCodecInputStream(mMediaCodec));
@@ -857,39 +872,40 @@ public abstract class VideoStream extends MediaStream {
 
     private long mNow = System.nanoTime() / 1000, mOldnow = mNow, i = 0;
 
+    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
     private void processShareBufferData(boolean isFrontCamera) {
-        if (mInputBuffers == null) {
-            mInputBuffers = mMediaCodec.getInputBuffers();
-        }
+        mInputBuffers = mMediaCodec.getInputBuffers();
         try {
             final int readBytesCount;
             if (isFrontCamera) {
                 readBytesCount = mFrontCameraMemFile.readBytes(FRONT_CAMERA_DATA_BUF, 1, 0, FRONT_CAMERA_FRAME_LEN);
                 Log.v(TAG, "Read front camera data with length of :  " + readBytesCount);
+
+                // TODO: 然后对读取出的数据进行编码操作
+                // TODO: 这里默认采用的是前置摄像头读取出的share buffer数据
+                // TODO: 之后进行分别测试
+                mOldnow = mNow;
+                mNow = System.nanoTime() / 1000;
+                int bufferIndex = mMediaCodec.dequeueInputBuffer(-1);
+                Log.d(TAG, "buffer index are " + bufferIndex);
+                if (bufferIndex >= 0) {
+                    mInputBuffers[bufferIndex].clear();
+                    // mConvertor.convert(FRONT_CAMERA_DATA_BUF, mInputBuffers[bufferIndex]);
+
+                    mInputBuffers[bufferIndex].put(FRONT_CAMERA_DATA_BUF);
+
+                    mMediaCodec.queueInputBuffer(bufferIndex,
+                            0,
+                            FRONT_CAMERA_FRAME_LEN,
+                            mNow,
+                            0);
+
+                } else {
+                    Log.e(TAG, "Read from ShareBuffer --> no buffer available");
+                }
             } else {
                 readBytesCount = mBackCameraMemFile.readBytes(BACK_CAMERA_DATA_BUF, 1, 0, BACK_CAMERA_FRAME_LEN);
                 Log.v(TAG, "Read back camera data with length of : " + readBytesCount);
-            }
-            // TODO: 然后对读取出的数据进行编码操作
-            // TODO: 这里默认采用的是前置摄像头读取出的share buffer数据
-            // TODO: 之后进行分别测试
-            mOldnow = mNow;
-            mNow = System.nanoTime() / 1000;
-            if (i++ > 3) {
-                i = 0;
-            }
-            int bufferIndex = mMediaCodec.dequeueInputBuffer(500000); // 500 seconds for timeout
-            if (bufferIndex >= 0) {
-                mInputBuffers[bufferIndex].clear();
-                mConvertor.convert(FRONT_CAMERA_DATA_BUF, mInputBuffers[bufferIndex]);
-
-                mMediaCodec.queueInputBuffer(bufferIndex,
-                        0,
-                        mInputBuffers[bufferIndex].position(),
-                        mNow,
-                        0);
-            } else {
-                Log.e(TAG, "Read from ShareBuffer --> no buffer available");
             }
         } catch (IOException e) {
             Log.e(TAG, "IO exception happened while read data from Camera Memory File", e);

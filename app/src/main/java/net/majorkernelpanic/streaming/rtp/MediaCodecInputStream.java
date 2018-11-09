@@ -20,15 +20,28 @@
 
 package net.majorkernelpanic.streaming.rtp;
 
+import java.io.BufferedOutputStream;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.StringWriter;
 import java.nio.ByteBuffer;
 
 import android.annotation.SuppressLint;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaFormat;
+import android.os.Environment;
 import android.util.Log;
+
+import net.majorkernelpanic.spydroid.SpydroidApplication;
+
+import org.apache.http.util.EntityUtils;
+import org.spongycastle.crypto.tls.TlsAgreementCredentials;
 
 /**
  * An InputStream that uses data from a MediaCodec.
@@ -39,7 +52,7 @@ import android.util.Log;
  */
 @SuppressLint("NewApi")
 public class MediaCodecInputStream extends InputStream {
-    public final String TAG = "MediaCodecInputStream";
+    public static final String TAG = "MediaCodecInputStream";
 
     private MediaCodec mMediaCodec;
     private BufferInfo mBufferInfo = new BufferInfo();
@@ -50,9 +63,11 @@ public class MediaCodecInputStream extends InputStream {
 
     public MediaFormat mMediaFormat;
 
+    private static final boolean TEST_ENCODE = true;
+
     public MediaCodecInputStream(MediaCodec mediaCodec) {
         mMediaCodec = mediaCodec;
-        mBuffers = mMediaCodec.getOutputBuffers();
+        // mBuffers = mMediaCodec.getOutputBuffers();
     }
 
     @Override
@@ -65,51 +80,121 @@ public class MediaCodecInputStream extends InputStream {
         return 0;
     }
 
+    private MediaCodec.BufferInfo mMediaBufferInfo = new MediaCodec.BufferInfo();
+    private static final int TIMEOUT_MS = 500000;
+
     @SuppressLint("WrongConstant")
     @Override
     public int read(byte[] buffer, int offset, int length) throws IOException {
-        int min = 0;
+        if (SpydroidApplication.USE_SHARE_BUFFER_DATA) {
+            Log.d(TAG, "read data with length of " + length);
+            int min = 0;
+            ByteBuffer[] outputBuffers = mMediaCodec.getOutputBuffers();
+            Log.d(TAG, "output buffers length are " + outputBuffers.length);
+            int index = mMediaCodec.dequeueOutputBuffer(mMediaBufferInfo, -1);
+            Log.d(TAG, "index " + index);
+            while (index >= 0) {
+                ByteBuffer outputBuffer = outputBuffers[index];
+                if (mMediaBufferInfo.flags == MediaCodec.BUFFER_FLAG_CODEC_CONFIG) {
+                    Log.d(TAG, "codec config");
 
-        try {
-            if (mBuffer == null) {
-                while (!Thread.interrupted() && !mClosed) {
-                    mIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 500000);
-                    if (mIndex >= 0) {
-                        //Log.d(TAG,"Index: "+mIndex+" Time: "+mBufferInfo.presentationTimeUs+" size: "+mBufferInfo.size);
-                        mBuffer = mBuffers[mIndex];
-                        mBuffer.position(0);
-                        break;
-                    } else if (mIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
+                } else if (mMediaBufferInfo.flags == MediaCodec.BUFFER_FLAG_KEY_FRAME) {
+                    Log.d(TAG, "is key stream");
+
+
+                } else if (mMediaBufferInfo.flags == MediaCodec.BUFFER_FLAG_END_OF_STREAM) {
+                    Log.d(TAG, "end of stream");
+
+                } else {
+                    Log.d(TAG, "no buffer available");
+                }
+
+                min = length < mBufferInfo.size - outputBuffer.position() ? length : mBufferInfo.size - outputBuffer.position();
+                outputBuffer.get(buffer, offset, min);
+                if (outputBuffer.position() >= mBufferInfo.size) {
+                    mMediaCodec.releaseOutputBuffer(mIndex, false);
+                    mBuffer = null;
+                }
+                mMediaCodec.releaseOutputBuffer(index, false);
+                index = mMediaCodec.dequeueOutputBuffer(mMediaBufferInfo, TIMEOUT_MS);
+            }
+
+            return -1;
+        } else {
+            int min = 0;
+            try {
+                if (mBuffer == null) {
+                    while (!Thread.interrupted() && !mClosed) {
                         mBuffers = mMediaCodec.getOutputBuffers();
-                    } else if (mIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                        mMediaFormat = mMediaCodec.getOutputFormat();
-                        Log.i(TAG, mMediaFormat.toString());
-                    } else if (mIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
-                        Log.v(TAG, "No buffer available...");
-                        //return 0;
-                    } else {
-                        Log.e(TAG, "Message: " + mIndex);
-                        //return 0;
+
+                        mIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, TIMEOUT_MS);
+                        if (mIndex >= 0) {
+                            //Log.d(TAG,"Index: "+mIndex+" Time: "+mBufferInfo.presentationTimeUs+" size: "+mBufferInfo.size);
+                            mBuffer = mBuffers[mIndex];
+                            mBuffer.position(0);
+                            break;
+                        } else if (mIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
+                            mBuffers = mMediaCodec.getOutputBuffers();
+                        } else if (mIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                            mMediaFormat = mMediaCodec.getOutputFormat();
+                            Log.i(TAG, mMediaFormat.toString());
+                        } else if (mIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                            Log.v(TAG, "No buffer available...");
+                            //return 0;
+                        } else {
+                            Log.e(TAG, "Message: " + mIndex);
+                            //return 0;
+                        }
                     }
                 }
-            }
 
-            if (mClosed) {
-                throw new IOException("This InputStream was closed");
-            }
+                if (mClosed) {
+                    throw new IOException("This InputStream was closed");
+                }
 
-            min = length < mBufferInfo.size - mBuffer.position() ? length : mBufferInfo.size - mBuffer.position();
-            mBuffer.get(buffer, offset, min);
-            if (mBuffer.position() >= mBufferInfo.size) {
-                mMediaCodec.releaseOutputBuffer(mIndex, false);
-                mBuffer = null;
-            }
+                min = length < mBufferInfo.size - mBuffer.position() ? length : mBufferInfo.size - mBuffer.position();
+                mBuffer.get(buffer, offset, min);
+                if (mBuffer.position() >= mBufferInfo.size) {
+                    mMediaCodec.releaseOutputBuffer(mIndex, false);
+                    mBuffer = null;
+                }
 
-        } catch (RuntimeException e) {
-            Log.e(TAG, "Runtime exception happened while read data", e);
+                // 将buffer写入到本地
+                if (TEST_ENCODE) {
+                    writeDataToLocal(buffer);
+                }
+
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Runtime exception happened while read data", e);
+            }
+            return min;
         }
-        return min;
     }
+
+    private static File sLocalFile;
+    private static OutputStream sOutputStream;
+
+    private static void writeDataToLocal(byte[] data) {
+        Log.d(TAG, "write data with len of " + data.length + " to local : " + Environment.getExternalStorageDirectory());
+        if (sLocalFile == null) {
+            sLocalFile = new File(Environment.getExternalStorageDirectory(), "video.cache");
+        }
+        if (sOutputStream == null) {
+            try {
+                sOutputStream = new BufferedOutputStream(new FileOutputStream(sLocalFile));
+            } catch (FileNotFoundException e) {
+                Log.e(TAG, "fail to find the data", e);
+                return;
+            }
+        }
+
+        try {
+            sOutputStream.write(data);
+        } catch (IOException e) {
+            Log.e(TAG, "IOException happened while read data", e);
+        }
+    }
+
 
     public int available() {
         if (mBuffer != null) {
