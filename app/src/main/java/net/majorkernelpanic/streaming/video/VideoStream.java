@@ -53,6 +53,7 @@ import net.majorkernelpanic.streaming.exceptions.InvalidSurfaceException;
 import net.majorkernelpanic.streaming.gl.SurfaceView;
 import net.majorkernelpanic.streaming.hw.EncoderDebugger;
 import net.majorkernelpanic.streaming.hw.NV21Convertor;
+import net.majorkernelpanic.streaming.hw.NativeYUVConverter;
 import net.majorkernelpanic.streaming.rtp.MediaCodecInputStream;
 
 import java.io.IOException;
@@ -64,6 +65,8 @@ import java.util.concurrent.TimeUnit;
 
 import static net.majorkernelpanic.spydroid.SpydroidApplication.BACK_CAMERA_FRAME_LEN;
 import static net.majorkernelpanic.spydroid.SpydroidApplication.FRONT_CAMERA_FRAME_LEN;
+import static net.majorkernelpanic.spydroid.SpydroidApplication.FRONT_CAMERA_HEIGHT;
+import static net.majorkernelpanic.spydroid.SpydroidApplication.FRONT_CAMERA_WIDTH;
 
 /**
  * Don't use this class directly.
@@ -73,6 +76,10 @@ import static net.majorkernelpanic.spydroid.SpydroidApplication.FRONT_CAMERA_FRA
 @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
 public abstract class VideoStream extends MediaStream {
     protected final static String TAG = "VideoStream";
+
+    static {
+        System.loadLibrary("color_converter");
+    }
 
     protected VideoQuality mRequestedQuality = VideoQuality.DEFAULT_VIDEO_QUALITY.clone();
     protected VideoQuality mQuality = mRequestedQuality.clone();
@@ -120,11 +127,6 @@ public abstract class VideoStream extends MediaStream {
             HandlerThread frontCameraHandlerThread = new HandlerThread("read_front_cam_stream_data");
             frontCameraHandlerThread.start();
             mFrontCameraReadingHandler = new Handler(frontCameraHandlerThread.getLooper(), frontCameraHandlerCallback);
-
-            BackCameraHandlerCallback backCameraHandlerCallback = new BackCameraHandlerCallback(new WeakReference<>(this));
-            HandlerThread backCameraHandlerThread = new HandlerThread("read_back_cam_stream_data");
-            backCameraHandlerThread.start();
-            mBackCameraReadingHandler = new Handler(backCameraHandlerThread.getLooper(), backCameraHandlerCallback);
 
             SpydroidApplication application = SpydroidApplication.getInstance();
             mFrontCameraMemFile = application.getFrontCameraMemFile();
@@ -326,16 +328,14 @@ public abstract class VideoStream extends MediaStream {
      * Stops the stream.
      */
     public synchronized void stop() {
-        Log.e(TAG, "stop streaming ");
+        Log.e(TAG, "stop video streaming action");
         if (SpydroidApplication.USE_SHARE_BUFFER_DATA) {
-            // 我们此时停止从ShareBuffer当中读取相机数据
-            if (mMode == MODE_MEDIACODEC_API_2) {
-                mSurfaceView.removeMediaCodecSurface();
-            }
-            super.stop();
-            Log.d(TAG, "stop reading data from the front camera and back camera");
-            mBackCameraReadingHandler.removeCallbacksAndMessages(null);
+            // 首先停止从ShareBuffer当中读取相机数据
+            Log.d(TAG, "stop reading data from front camera");
+            // 我们不处理后路的dms镜头
             mFrontCameraReadingHandler.removeCallbacksAndMessages(null);
+            // 然后通知MediaStream停止Packetizer和释放MediaCodec
+            super.stop();
         } else {
             if (mCamera != null) {
                 if (mMode == MODE_MEDIACODEC_API) {
@@ -568,12 +568,9 @@ public abstract class VideoStream extends MediaStream {
             Log.d(TAG, "thread name " + Thread.currentThread().getName());
             Log.d(TAG, "encode the ShareBuffer data");
             mConvertor = NV21Convertor.getDefaultNV21Convertor();
-            // FIXME: 这里的encoder本身是从系统当中获取的,不是固定的
             // 我们最好也是通过EncoderDebugger来获取到编码器的名称,而不是直接固定写死
-            // final String encoderName = "OMX.google.h264.encoder";
             final String MIME_TYPE = "video/avc";
 
-            // mMediaCodec = MediaCodec.createByCodecName(encoderName);
             mMediaCodec = MediaCodec.createEncoderByType(MIME_TYPE);
             final int width = 640;
             final int height = 480;
@@ -596,8 +593,10 @@ public abstract class VideoStream extends MediaStream {
             mMediaCodec.start();
 
             // 发送消息，开始读取ShareBuffer当中的数据
-            mFrontCameraReadingHandler.sendEmptyMessageDelayed(MSG_READ_FRONT_STREAM_DATA, 3000);
+            mFrontCameraReadingHandler.sendEmptyMessage(MSG_READ_FRONT_STREAM_DATA);
 
+            // 利用Packetizer将MediaCodec当中读取编码好的数据进行封装,封装成
+            // RTP数据包,然后通过RTP进行发送
             mPacketizer.setDestination(mDestination, mRtpPort, mRtcpPort);
             mPacketizer.setInputStream(new MediaCodecInputStream(mMediaCodec));
             mPacketizer.start();
@@ -630,6 +629,8 @@ public abstract class VideoStream extends MediaStream {
         mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
         mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
         mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+        // 这种编码方式是直接使用MediaCodec提供的Surface,然后直接读取Surface提供的数据(背后通过swapBuffer来实现
+        // 原始视频数据的获取)
         // Requests a Surface to use as the input to an encoder, in place of input buffers.
         Surface surface = mMediaCodec.createInputSurface();
         mSurfaceView.addMediaCodecSurface(surface);
@@ -860,52 +861,47 @@ public abstract class VideoStream extends MediaStream {
     private static final int READ_MEDIA_STREAMING_DATA_INTERVAL = 66;
 
     private static final int MSG_READ_FRONT_STREAM_DATA = 1 << 1;
-    private static final int MSG_READ_BACK_STREAM_DATA = 1 << 2;
 
     private static final byte[] FRONT_CAMERA_DATA_BUF = new byte[FRONT_CAMERA_FRAME_LEN];
-    private static final byte[] BACK_CAMERA_DATA_BUF = new byte[BACK_CAMERA_FRAME_LEN];
 
     private Handler mFrontCameraReadingHandler;
-    private Handler mBackCameraReadingHandler;
-
-    private ByteBuffer[] mInputBuffers;
 
     private long mNow = System.nanoTime() / 1000, mOldnow = mNow, i = 0;
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    private void processShareBufferData(boolean isFrontCamera) {
-        mInputBuffers = mMediaCodec.getInputBuffers();
+    private void processShareBufferData() {
+        ByteBuffer[] inputBuffers = mMediaCodec.getInputBuffers();
         try {
             final int readBytesCount;
-            if (isFrontCamera) {
-                readBytesCount = mFrontCameraMemFile.readBytes(FRONT_CAMERA_DATA_BUF, 1, 0, FRONT_CAMERA_FRAME_LEN);
-                Log.v(TAG, "Read front camera data with length of :  " + readBytesCount);
+            readBytesCount = mFrontCameraMemFile.readBytes(FRONT_CAMERA_DATA_BUF, 1, 0, FRONT_CAMERA_FRAME_LEN);
+            Log.v(TAG, "Read front camera data with length of :  " + readBytesCount);
 
-                // TODO: 然后对读取出的数据进行编码操作
-                // TODO: 这里默认采用的是前置摄像头读取出的share buffer数据
-                // TODO: 之后进行分别测试
-                mOldnow = mNow;
-                mNow = System.nanoTime() / 1000;
-                int bufferIndex = mMediaCodec.dequeueInputBuffer(-1);
-                Log.d(TAG, "buffer index are " + bufferIndex);
-                if (bufferIndex >= 0) {
-                    mInputBuffers[bufferIndex].clear();
-                    // mConvertor.convert(FRONT_CAMERA_DATA_BUF, mInputBuffers[bufferIndex]);
+            mOldnow = mNow;
+            mNow = System.nanoTime() / 1000;
+            int bufferIndex = mMediaCodec.dequeueInputBuffer(-1);
+            Log.d(TAG, "buffer index are " + bufferIndex);
+            if (bufferIndex >= 0) {
+                // 在将数据交出去之前,首先将数据进行nv通道转换
+                byte[] availableBuf = new byte[FRONT_CAMERA_FRAME_LEN];
+                NativeYUVConverter.nv21ToYUV420SP(FRONT_CAMERA_DATA_BUF, availableBuf,
+                        FRONT_CAMERA_WIDTH * FRONT_CAMERA_HEIGHT);
 
-                    mInputBuffers[bufferIndex].put(FRONT_CAMERA_DATA_BUF);
 
-                    mMediaCodec.queueInputBuffer(bufferIndex,
-                            0,
-                            FRONT_CAMERA_FRAME_LEN,
-                            mNow,
-                            0);
+                // 获取到MediaCodec当中的InputBuffer
+                // 此时获取到的只是inputBuffers当中的一个可用的ByteBuffer
+                // 然后我们将我们的经过nv转换后的数据填充到这个ByteBuffer当中
+                ByteBuffer inputBuffer = inputBuffers[bufferIndex];
+                inputBuffer.position(0);
+                inputBuffer.put(availableBuf, 0, FRONT_CAMERA_FRAME_LEN);
 
-                } else {
-                    Log.e(TAG, "Read from ShareBuffer --> no buffer available");
-                }
+                // 然后将填充了视频数据的ByteBuffer交给MediaCodec进行编码
+                mMediaCodec.queueInputBuffer(bufferIndex,
+                        0,
+                        FRONT_CAMERA_FRAME_LEN,
+                        mNow,
+                        0);
             } else {
-                readBytesCount = mBackCameraMemFile.readBytes(BACK_CAMERA_DATA_BUF, 1, 0, BACK_CAMERA_FRAME_LEN);
-                Log.v(TAG, "Read back camera data with length of : " + readBytesCount);
+                Log.e(TAG, "Read from ShareBuffer --> no buffer available");
             }
         } catch (IOException e) {
             Log.e(TAG, "IO exception happened while read data from Camera Memory File", e);
@@ -928,29 +924,11 @@ public abstract class VideoStream extends MediaStream {
                 // 因为outObj.processShareBufferData();方法的执行会消耗时间
                 // 所以需要先将消息发送出去，然后再处理数据
                 outObj.mFrontCameraReadingHandler.sendEmptyMessageDelayed(MSG_READ_FRONT_STREAM_DATA, READ_MEDIA_STREAMING_DATA_INTERVAL);
-
-                outObj.processShareBufferData(true);
+                Log.d(TAG, "received message to read front camera data");
+                outObj.processShareBufferData();
             }
             return false;
         }
     }
 
-    private static class BackCameraHandlerCallback implements Handler.Callback {
-        private VideoStream outObj;
-
-        BackCameraHandlerCallback(WeakReference<VideoStream> outRef) {
-            this.outObj = outRef.get();
-        }
-
-        @Override
-        public boolean handleMessage(Message msg) {
-            if (msg.what == MSG_READ_BACK_STREAM_DATA) {
-                // 直接循环发送相同的消息
-                outObj.mBackCameraReadingHandler.sendEmptyMessageDelayed(MSG_READ_BACK_STREAM_DATA, READ_MEDIA_STREAMING_DATA_INTERVAL);
-
-                outObj.processShareBufferData(false);
-            }
-            return false;
-        }
-    }
 }

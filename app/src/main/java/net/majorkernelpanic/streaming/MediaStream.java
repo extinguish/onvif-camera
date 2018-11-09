@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.util.Random;
 
+import net.majorkernelpanic.spydroid.SpydroidApplication;
 import net.majorkernelpanic.streaming.audio.AudioStream;
 import net.majorkernelpanic.streaming.rtp.AbstractPacketizer;
 import net.majorkernelpanic.streaming.video.VideoStream;
@@ -257,19 +258,29 @@ public abstract class MediaStream implements Stream {
     public synchronized void stop() {
         if (mStreaming) {
             try {
-                if (mMode == MODE_MEDIARECORDER_API) {
-                    mMediaRecorder.stop();
-                    mMediaRecorder.release();
-                    mMediaRecorder = null;
-                    closeSockets();
-                    mPacketizer.stop();
-                } else {
+                if (SpydroidApplication.USE_SHARE_BUFFER_DATA) {
+                    Log.d(TAG, "stop the Packetizer and stop the MediaCodec");
+                    // 如果是从ShareBuffer当中读取数据时,我们只需要将
+                    // socket关闭,Packetizer关闭
                     mPacketizer.stop();
                     mMediaCodec.stop();
                     mMediaCodec.release();
                     mMediaCodec = null;
+                } else {
+                    if (mMode == MODE_MEDIARECORDER_API) {
+                        mMediaRecorder.stop();
+                        mMediaRecorder.release();
+                        mMediaRecorder = null;
+                        closeSockets();
+                        mPacketizer.stop();
+                    } else {
+                        mPacketizer.stop();
+                        mMediaCodec.stop();
+                        mMediaCodec.release();
+                        mMediaCodec = null;
+                    }
                 }
-            } catch (Exception e) {
+            } catch (final Exception e) {
                 Log.e(TAG, "Exception happened while we stop the stream", e);
             }
             mStreaming = false;

@@ -226,7 +226,9 @@ public class RtspServer extends Service {
                 mListenerThread.kill();
                 for (Session session : mSessions.keySet()) {
                     if (session != null) {
-                        if (session.isStreaming()) session.stop();
+                        if (session.isStreaming()) {
+                            session.stop();
+                        }
                     }
                 }
             } catch (Exception e) {

@@ -4,3 +4,6 @@ spydroid-ipcamera.iml
 app/build/
 ipcamerafinder/build/
 app/app.iml
+app/.externalNativeBuild/
+app/src/main/libs/
+app/src/main/obj/

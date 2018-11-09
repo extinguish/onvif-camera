@@ -8,6 +8,12 @@ android {
         applicationId "com.adasplus.ipcamera"
         minSdkVersion 14
         targetSdkVersion 21
+
+        externalNativeBuild {
+            ndkBuild {
+                abiFilters 'armeabi-v7a'
+            }
+        }
     }
 
     buildTypes {
@@ -19,6 +25,12 @@ android {
     compileOptions {
         sourceCompatibility = '1.7'
         targetCompatibility = '1.7'
+    }
+
+    externalNativeBuild {
+        ndkBuild {
+            path 'src/main/jni/Android.mk'
+        }
     }
 }
 

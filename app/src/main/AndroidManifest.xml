@@ -5,6 +5,9 @@
     android:versionCode="1000"
     android:versionName="10">
 
+    <!--以下只是为了ndk-build使用-->
+    <!--<uses-sdk android:minSdkVersion="16" />-->
+
     <uses-feature android:name="android.hardware.camera" />
     <uses-feature android:name="android.hardware.camera.autofocus" />
 

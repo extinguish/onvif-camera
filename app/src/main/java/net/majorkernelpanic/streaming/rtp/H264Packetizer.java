@@ -34,6 +34,9 @@ import android.util.Log;
  * The stream must start with mpeg4 or 3gpp header, it will be skipped.
  * <p>
  * 用于将H264数据流数据封装成H264格式.
+ * <p>
+ * {@link H264Packetizer}本身直接从{@link MediaCodecInputStream}当中读取数据,然后将读取出来
+ * 的数据封装成RTP协议需要的格式,然后进行发送.
  */
 public class H264Packetizer extends AbstractPacketizer implements Runnable {
     public final static String TAG = "H264Packetizer";

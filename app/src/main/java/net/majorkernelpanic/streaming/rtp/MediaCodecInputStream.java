@@ -36,6 +36,7 @@ import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaFormat;
 import android.os.Environment;
+import android.support.annotation.NonNull;
 import android.util.Log;
 
 import net.majorkernelpanic.spydroid.SpydroidApplication;
@@ -59,6 +60,10 @@ public class MediaCodecInputStream extends InputStream {
     private ByteBuffer[] mBuffers;
     private ByteBuffer mBuffer = null;
     private int mIndex = -1;
+    /**
+     * 用于标识当前的video stream已经到达了末端
+     * 我们通过该值来通知停止从MediaCodec当中读取数据
+     */
     private boolean mClosed = false;
 
     public MediaFormat mMediaFormat;
@@ -85,41 +90,70 @@ public class MediaCodecInputStream extends InputStream {
 
     @SuppressLint("WrongConstant")
     @Override
-    public int read(byte[] buffer, int offset, int length) throws IOException {
+    public int read(@NonNull byte[] buffer, int offset, int length) throws IOException {
         if (SpydroidApplication.USE_SHARE_BUFFER_DATA) {
-            Log.d(TAG, "read data with length of " + length);
             int min = 0;
-            ByteBuffer[] outputBuffers = mMediaCodec.getOutputBuffers();
-            Log.d(TAG, "output buffers length are " + outputBuffers.length);
-            int index = mMediaCodec.dequeueOutputBuffer(mMediaBufferInfo, -1);
-            Log.d(TAG, "index " + index);
-            while (index >= 0) {
-                ByteBuffer outputBuffer = outputBuffers[index];
-                if (mMediaBufferInfo.flags == MediaCodec.BUFFER_FLAG_CODEC_CONFIG) {
-                    Log.d(TAG, "codec config");
-
-                } else if (mMediaBufferInfo.flags == MediaCodec.BUFFER_FLAG_KEY_FRAME) {
-                    Log.d(TAG, "is key stream");
-
-
-                } else if (mMediaBufferInfo.flags == MediaCodec.BUFFER_FLAG_END_OF_STREAM) {
-                    Log.d(TAG, "end of stream");
-
-                } else {
-                    Log.d(TAG, "no buffer available");
-                }
-
-                min = length < mBufferInfo.size - outputBuffer.position() ? length : mBufferInfo.size - outputBuffer.position();
-                outputBuffer.get(buffer, offset, min);
-                if (outputBuffer.position() >= mBufferInfo.size) {
-                    mMediaCodec.releaseOutputBuffer(mIndex, false);
-                    mBuffer = null;
-                }
-                mMediaCodec.releaseOutputBuffer(index, false);
-                index = mMediaCodec.dequeueOutputBuffer(mMediaBufferInfo, TIMEOUT_MS);
+            ByteBuffer[] encoderOutputBuffers = mMediaCodec.getOutputBuffers();
+            if (mClosed) {
+                mMediaCodec.signalEndOfInputStream();
             }
+            for (; ; ) {
+                int encoderStatus = mMediaCodec.dequeueOutputBuffer(mMediaBufferInfo, TIMEOUT_MS);
+                if (encoderStatus == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                    if (mClosed) {
+                        Log.d(TAG, "break loop, wait for next loop while data available");
+                        break;
+                    } else {
+                        Log.d(TAG, "no output available, just wait, until preset timeout reached");
+                    }
+                } else if (encoderStatus == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
+                    // not expected for an encoder
+                    encoderOutputBuffers = mMediaCodec.getOutputBuffers();
+                } else if (encoderStatus == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    // 格式发生了变化,我们暂时不处理这种情况
+                    Log.w(TAG, "encode output buffer has changed, and do not handle this case");
+                } else if (encoderStatus < 0) {
+                    Log.d(TAG, "unexpected result from encoder.dequeueOutputBuffer");
+                } else {
+                    ByteBuffer encodedData = encoderOutputBuffers[encoderStatus];
+                    if (encodedData == null) {
+                        Log.e(TAG, "encode wrong");
+                        break;
+                    }
 
-            return -1;
+                    if ((mMediaBufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
+                        Log.d(TAG, "ignore BUFFER_FLAG_CODEC_CONFIG");
+                        mMediaBufferInfo.size = 0;
+                    }
+
+                    if (mMediaBufferInfo.size != 0) {
+                        encodedData.position(mMediaBufferInfo.offset);
+                        encodedData.limit(mMediaBufferInfo.offset + mMediaBufferInfo.size);
+                        // 将encoded当中的数据填充到buffer当中
+                        min = length < mMediaBufferInfo.size - encodedData.position() ? length : mMediaBufferInfo.size - encodedData.position();
+                        encodedData.get(buffer, offset, min);
+                    }
+
+                    mMediaCodec.releaseOutputBuffer(encoderStatus, false);
+
+                    if ((mMediaBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                        if (!mClosed) {
+                            Log.w(TAG, "reach the end of stream unexpected????");
+                        } else {
+                            Log.d(TAG, "end of stream");
+                        }
+                        // 等待下一次编码数据可行
+                        break;
+                    }
+
+                    // 将buffer写入到本地
+                    if (TEST_ENCODE) {
+                        Log.d(TAG, "write buffer with length of " + buffer.length);
+                        writeDataToLocal(buffer);
+                    }
+                }
+            }
+            return min;
         } else {
             int min = 0;
             try {
@@ -174,8 +208,7 @@ public class MediaCodecInputStream extends InputStream {
     private static File sLocalFile;
     private static OutputStream sOutputStream;
 
-    private static void writeDataToLocal(byte[] data) {
-        Log.d(TAG, "write data with len of " + data.length + " to local : " + Environment.getExternalStorageDirectory());
+    private void writeDataToLocal(byte[] data) {
         if (sLocalFile == null) {
             sLocalFile = new File(Environment.getExternalStorageDirectory(), "video.cache");
         }
@@ -189,9 +222,20 @@ public class MediaCodecInputStream extends InputStream {
         }
 
         try {
+            Log.d(TAG, "write data of " + data.length + " to local");
             sOutputStream.write(data);
         } catch (IOException e) {
             Log.e(TAG, "IOException happened while read data", e);
+        }
+
+        if (mClosed) {
+            if (sOutputStream != null) {
+                try {
+                    sOutputStream.close();
+                } catch (IOException e) {
+                    Log.e(TAG, "IOException happened while close the output stream", e);
+                }
+            }
         }
     }
 
