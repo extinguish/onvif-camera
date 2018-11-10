@@ -62,7 +62,6 @@ public class MP4Config {
      * @throws FileNotFoundException
      */
     public MP4Config(String path) throws IOException, FileNotFoundException {
-
         StsdBox stsdBox;
 
         // We open the mp4 file

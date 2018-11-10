@@ -45,6 +45,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceHolder.Callback;
 
 import net.majorkernelpanic.spydroid.SpydroidApplication;
+import net.majorkernelpanic.spydroid.Utilities;
 import net.majorkernelpanic.streaming.MediaStream;
 import net.majorkernelpanic.streaming.Stream;
 import net.majorkernelpanic.streaming.exceptions.CameraInUseException;
@@ -472,6 +473,7 @@ public abstract class VideoStream extends MediaStream {
     }
 
     private NV21Convertor mConvertor;
+    private static long sStartTimestamp = 0L;
 
     /**
      * Video encoding is done by a MediaCodec.
@@ -591,6 +593,8 @@ public abstract class VideoStream extends MediaStream {
                     "height range --> " + heightRange.getLower() + " to " + heightRange.getUpper());
 
             mMediaCodec.start();
+
+            sStartTimestamp = System.nanoTime();
 
             // 发送消息，开始读取ShareBuffer当中的数据
             mFrontCameraReadingHandler.sendEmptyMessage(MSG_READ_FRONT_STREAM_DATA);
@@ -866,8 +870,6 @@ public abstract class VideoStream extends MediaStream {
 
     private Handler mFrontCameraReadingHandler;
 
-    private long mNow = System.nanoTime() / 1000, mOldnow = mNow, i = 0;
-
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
     private void processShareBufferData() {
         ByteBuffer[] inputBuffers = mMediaCodec.getInputBuffers();
@@ -876,30 +878,37 @@ public abstract class VideoStream extends MediaStream {
             readBytesCount = mFrontCameraMemFile.readBytes(FRONT_CAMERA_DATA_BUF, 1, 0, FRONT_CAMERA_FRAME_LEN);
             Log.v(TAG, "Read front camera data with length of :  " + readBytesCount);
 
-            mOldnow = mNow;
-            mNow = System.nanoTime() / 1000;
             int bufferIndex = mMediaCodec.dequeueInputBuffer(-1);
             Log.d(TAG, "buffer index are " + bufferIndex);
             if (bufferIndex >= 0) {
+                // TODO: 目前的问题就是出在NV通道转换的问题
+                // TODO: 这里的availableBuf的大小有问题
+                // availableBuf的大小应该是有自己的大小，而不是同FRONT_CAMERA_FRONT_LEN一样的大小
+
                 // 在将数据交出去之前,首先将数据进行nv通道转换
                 byte[] availableBuf = new byte[FRONT_CAMERA_FRAME_LEN];
-                NativeYUVConverter.nv21ToYUV420SP(FRONT_CAMERA_DATA_BUF, availableBuf,
+                NativeYUVConverter.nv21ToYUV420P(FRONT_CAMERA_DATA_BUF, availableBuf,
                         FRONT_CAMERA_WIDTH * FRONT_CAMERA_HEIGHT);
 
+                // availableBuf = mConvertor.convert(FRONT_CAMERA_DATA_BUF);
+
+                final int availableBufLen = availableBuf.length;
 
                 // 获取到MediaCodec当中的InputBuffer
                 // 此时获取到的只是inputBuffers当中的一个可用的ByteBuffer
                 // 然后我们将我们的经过nv转换后的数据填充到这个ByteBuffer当中
                 ByteBuffer inputBuffer = inputBuffers[bufferIndex];
                 inputBuffer.position(0);
-                inputBuffer.put(availableBuf, 0, FRONT_CAMERA_FRAME_LEN);
+                inputBuffer.put(availableBuf, 0, availableBufLen);
+
+                // Utilities.printByteArr(TAG, availableBuf);
 
                 // 然后将填充了视频数据的ByteBuffer交给MediaCodec进行编码
                 mMediaCodec.queueInputBuffer(bufferIndex,
                         0,
-                        FRONT_CAMERA_FRAME_LEN,
-                        mNow,
-                        0);
+                        availableBufLen,
+                        (System.nanoTime() - sStartTimestamp) / 1000,
+                        mStreaming ? 0 : MediaCodec.BUFFER_FLAG_END_OF_STREAM);
             } else {
                 Log.e(TAG, "Read from ShareBuffer --> no buffer available");
             }

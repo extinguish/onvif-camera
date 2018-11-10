@@ -189,6 +189,4 @@ public class SurfaceManager {
             throw new RuntimeException(msg + ": EGL error: 0x" + Integer.toHexString(error));
         }
     }
-
-
 }

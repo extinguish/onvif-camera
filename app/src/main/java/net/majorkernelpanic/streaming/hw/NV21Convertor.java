@@ -120,7 +120,7 @@ public class NV21Convertor {
      * @param data 这个是原始的相机预览的buffer数据
      * @return 将相机预览原始数据转换之后的数据
      */
-    byte[] convert(byte[] data) {
+    public byte[] convert(byte[] data) {
         // A buffer large enough for every case
         if (mBuffer == null || mBuffer.length != 3 * mSliceHeight * mStride / 2 + mYPadding) {
             mBuffer = new byte[3 * mSliceHeight * mStride / 2 + mYPadding];
@@ -173,6 +173,7 @@ public class NV21Convertor {
 
     /**
      * 获取默认配置参数的{@link NV21Convertor},主要是用于ShareBuffer使用
+     *
      * @return
      */
     public static NV21Convertor getDefaultNV21Convertor() {

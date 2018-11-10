@@ -397,4 +397,13 @@ public class Utilities {
     }
 
 
+    public static void printByteArr(String tag, byte[] arr) {
+        StringBuilder content = new StringBuilder();
+        for (byte ele : arr) {
+            content.append(ele).append(' ');
+        }
+        Log.d(tag, content.toString());
+    }
+
+
 }
