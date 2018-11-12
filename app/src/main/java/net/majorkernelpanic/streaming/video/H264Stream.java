@@ -43,6 +43,7 @@ import android.os.Environment;
 import android.service.textservice.SpellCheckerService.Session;
 import android.util.Base64;
 import android.util.Log;
+import android.util.Pair;
 
 import org.spongycastle.asn1.esf.SPuri;
 
@@ -92,9 +93,16 @@ public class H264Stream extends VideoStream {
         if (mConfig == null) {
             throw new IllegalStateException("You need to call configure() first !");
         }
-        return "m=video " + String.valueOf(getDestinationPorts()[0]) + " RTP/AVP 96\r\n" +
+        String sessionDescription = "m=video " + String.valueOf(getDestinationPorts()[0]) +
+                " RTP/AVP 96\r\n" +
                 "a=rtpmap:96 H264/90000\r\n" +
-                "a=fmtp:96 packetization-mode=1;profile-level-id=" + mConfig.getProfileLevel() + ";sprop-parameter-sets=" + mConfig.getB64SPS() + "," + mConfig.getB64PPS() + ";\r\n";
+                "a=fmtp:96 packetization-mode=1;profile-level-id=" +
+                mConfig.getProfileLevel() +
+                ";sprop-parameter-sets=" + mConfig.getB64SPS() +
+                "," + mConfig.getB64PPS() + ";\r\n";
+
+        Log.d(TAG, "Session Description are --> " + sessionDescription);
+        return sessionDescription;
     }
 
     /**
@@ -129,11 +137,36 @@ public class H264Stream extends VideoStream {
         if (!SpydroidApplication.USE_SHARE_BUFFER_DATA) {
             mConfig = testH264();
         } else {
+            Log.d(TAG, "Encoder Debug start ... ");
+            // 此时，我们需要自己手动生成config
+            // 对于Ky设备，经过EncoderDebugger的测试，发现这个设备当中并没有直接针对
+            // 640x480的编码器
+            // 但是考虑到我们会将获取到的ShareBuffer数据通过yuv转换时，将视频帧缩小到
+            // 320x240的格式，
+            // 因此我们这里也可以直接定义成320x240的格式
+//            EncoderDebugger shareBufferDebugger = EncoderDebugger.debug(SpydroidApplication.getInstance(),
+//                    320, 240);
+//            String ppsStr = shareBufferDebugger.getB64PPS();
+//            String spsStr = shareBufferDebugger.getB64SPS();
+            // Log.d(TAG, "our own test pps str are " + ppsStr + ", sps str are " + spsStr);
             // 这是针对前路镜头的
             mQuality.resX = 640;
             mQuality.resY = 480;
-            final String sps = "J0IAFKaBQfE=";
-            final String pps = "KM48gA==";
+
+            // TODO: 这里的sps和pps字段的准确值含义需要明确
+            // 如果不准确的话，会直接导致我们无法解析具体的数据帧
+//            final String sps = "J0IAFKaBQfE=";
+//            final String pps = "KM48gA==";
+
+            Pair<String, String> spsNppsPair = EncoderDebugger.searchSPSandPPSForShareBuffer();
+            final String sps, pps;
+            if (spsNppsPair != null) {
+                pps = spsNppsPair.first;
+                sps = spsNppsPair.second;
+            } else {
+                pps = "aOpDyw==";
+                sps = "Z2QAKawbGoFB+gHhEIpw";
+            }
 
             mConfig = new MP4Config(sps, pps);
         }

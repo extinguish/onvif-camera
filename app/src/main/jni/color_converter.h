@@ -10,6 +10,10 @@
 #define FLAG_DIRECTION_ROATATION_180    0x40
 #define FLAG_DIRECTION_ROATATION_270    0x80
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void NV21TOYUV420SP(const unsigned char *src, const unsigned char *dst, int ySize);
 
 void YUV420SPTOYUV420P(const unsigned char *src, const unsigned char *dst, int ySize);
@@ -25,5 +29,11 @@ void NV21TOYUV(const unsigned char *src, const unsigned char *dstY, const unsign
                const unsigned char *dstV, int width, int height);
 
 void FIXGLPIXEL(const unsigned int *src, unsigned int *dst, int width, int height);
+
+#ifdef __cplusplus
+};
+#endif
+
+
 
 #endif

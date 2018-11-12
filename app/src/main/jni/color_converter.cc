@@ -1,14 +1,19 @@
-#include "color_converter.h"
 #include <string.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "log.h"
+#include "color_converter.h"
 
 void NV21TOYUV420SP(const unsigned char *src, const unsigned char *dst, int ySize) {
-    memcpy(dst, src, ySize);
+    memcpy((void *) dst, src, ySize);
     int uvSize = ySize >> 1;
     int uSize = uvSize >> 1;
-    memcpy(dst + ySize, src + ySize + 1, uvSize - 1);
-    unsigned char *nvcur = src + ySize;
-    unsigned char *yuvcur = dst + ySize + 1;
+    memcpy((void *) (dst + ySize), src + ySize + 1, uvSize - 1);
+    unsigned char *nvcur = const_cast<unsigned char *>(src) + ySize;
+    unsigned char *yuvcur = const_cast<unsigned char *>(dst) + ySize + 1;
     int i = 0;
     while (i < uSize) {
         (*yuvcur) = (*nvcur);
@@ -19,12 +24,12 @@ void NV21TOYUV420SP(const unsigned char *src, const unsigned char *dst, int ySiz
 }
 
 void NV21TOYUV420P(const unsigned char *src, const unsigned char *dst, int ySize) {
-    memcpy(dst, src, ySize);
+    memcpy((void *) dst, src, ySize);
     int uSize = ySize >> 2;
-    unsigned char *srcucur = src + ySize + 1;
-    unsigned char *srcvcur = src + ySize;
-    unsigned char *dstucur = dst + ySize;
-    unsigned char *dstvcur = dst + ySize + uSize;
+    unsigned char *srcucur = const_cast<unsigned char *>(src) + ySize + 1;
+    unsigned char *srcvcur = const_cast<unsigned char *>(src) + ySize;
+    unsigned char *dstucur = const_cast<unsigned char *>(dst) + ySize;
+    unsigned char *dstvcur = const_cast<unsigned char *>(dst) + ySize + uSize;
     int i = 0;
     while (i < uSize) {
         (*dstucur) = (*srcucur);
@@ -38,12 +43,12 @@ void NV21TOYUV420P(const unsigned char *src, const unsigned char *dst, int ySize
 }
 
 void YUV420SPTOYUV420P(const unsigned char *src, const unsigned char *dst, int ySize) {
-    memcpy(dst, src, ySize);
+    memcpy((void *) dst, src, ySize);
     int uSize = ySize >> 2;
-    unsigned char *srcucur = src + ySize;
-    unsigned char *srcvcur = src + ySize + 1;
-    unsigned char *dstucur = dst + ySize;
-    unsigned char *dstvcur = dst + ySize + uSize;
+    unsigned char *srcucur = const_cast<unsigned char *>(src) + ySize;
+    unsigned char *srcvcur = const_cast<unsigned char *>(src) + ySize + 1;
+    unsigned char *dstucur = const_cast<unsigned char *>(dst) + ySize;
+    unsigned char *dstvcur = const_cast<unsigned char *>(dst) + ySize + uSize;
     int i = 0;
     while (i < uSize) {
         (*dstucur) = (*srcucur);
@@ -62,7 +67,7 @@ void NV21TOARGB(const unsigned char *src, const unsigned int *dst, int width, in
     int i = 0, j = 0, yp = 0;
     int uvp = 0, u = 0, v = 0;
     int y1192 = 0, r = 0, g = 0, b = 0;
-    unsigned int *target = dst;
+    unsigned int *target = const_cast<unsigned int *>(dst);
     for (j = 0, yp = 0; j < height; j++) {
         uvp = frameSize + (j >> 1) * width;
         u = 0;
@@ -95,8 +100,8 @@ void NV21TOARGB(const unsigned char *src, const unsigned int *dst, int width, in
 
 void NV21Transform(const unsigned char *src, const unsigned char *dst, int srcWidth, int srcHeight,
                    int directionFlag) {
-    unsigned char *cdst = dst;
-    unsigned char *csrc = src;
+    unsigned char *cdst = const_cast<unsigned char *>(dst);
+    unsigned char *csrc = const_cast<unsigned char *>(src);
     int rotate = 0;
     int hflip = 0;
     int vflip = 0;
@@ -226,12 +231,12 @@ void NV21TOYUV(const unsigned char *src, const unsigned char *dstY, const unsign
     int uvSize = ySize >> 1;
     int uSize = uvSize >> 1;
     //y
-    memcpy(dstY, src, ySize);
+    memcpy((void *) dstY, src, ySize);
     //uv
-    unsigned char *srcucur = src + ySize + 1;
-    unsigned char *srcvcur = src + ySize;
-    unsigned char *dstucur = dstU;
-    unsigned char *dstvcur = dstV;
+    unsigned char *srcucur = const_cast<unsigned char *>(src) + ySize + 1;
+    unsigned char *srcvcur = const_cast<unsigned char *>(src) + ySize;
+    unsigned char *dstucur = const_cast<unsigned char *>(dstU);
+    unsigned char *dstvcur = const_cast<unsigned char *>(dstV);
     int i = 0;
     while (i < uSize) {
         (*dstucur) = (*srcucur);
@@ -250,8 +255,8 @@ void FIXGLPIXEL(const unsigned int *src, unsigned int *dst, int width, int heigh
     unsigned char temp;
     unsigned char *srcucur;
     unsigned char *dstucur;
-    unsigned char *dstu = dst;
-    unsigned char *srcu = src;
+    unsigned char *dstu = reinterpret_cast<unsigned char *>(dst);
+    unsigned char *srcu = (unsigned char *) src;
     for (y = 0; y < height; y++) {
         srcucur = (srcu + y * width * 4);
         int step = (height - y - 1) * width * 4;
@@ -267,3 +272,9 @@ void FIXGLPIXEL(const unsigned int *src, unsigned int *dst, int width, int heigh
         }
     }
 }
+
+#ifdef __cplusplus
+};
+#endif
+
+

@@ -39,6 +39,7 @@ import android.os.Build;
 import android.preference.PreferenceManager;
 import android.util.Base64;
 import android.util.Log;
+import android.util.Pair;
 
 /**
  * The purpose of this class is to detect and by-pass some bugs (or underspecified configuration) that
@@ -267,8 +268,9 @@ public class EncoderDebugger {
                             }
                             try {
                                 decode(true);
-                                if (VERBOSE)
+                                if (VERBOSE) {
                                     Log.d(TAG, mDecoderName + " successfully decoded the NALs (color format " + mDecoderColorFormat + ")");
+                                }
                                 decoded = true;
                             } catch (Exception e) {
                                 if (VERBOSE)
@@ -325,7 +327,9 @@ public class EncoderDebugger {
                     e.printStackTrace(pw);
                     String stack = sw.toString();
                     String str = "Encoder " + mEncoderName + " cannot be used with color format " + mEncoderColorFormat;
-                    if (VERBOSE) Log.e(TAG, str, e);
+                    if (VERBOSE) {
+                        Log.e(TAG, str, e);
+                    }
                     mErrorLog += str + "\n" + stack;
                     e.printStackTrace();
                 } finally {
@@ -398,6 +402,19 @@ public class EncoderDebugger {
             mInitialImage[i] = (byte) (40 + i % 200);
             mInitialImage[i + 1] = (byte) (40 + (i + 99) % 200);
         }
+    }
+
+    public static byte[] createTestImg() {
+        final int size = 320 * 240;
+        byte[] testImg = new byte[3 * size / 2];
+        for (int i = 0; i < size; i++) {
+            testImg[i] = (byte) (40 + i % 199);
+        }
+        for (int i = size; i < 3 * size / 2; i += 2) {
+            testImg[i] = (byte) (40 + i % 200);
+            testImg[i + 1] = (byte) (40 + (i + 99) % 200);
+        }
+        return testImg;
     }
 
     /**
@@ -629,10 +646,123 @@ public class EncoderDebugger {
     }
 
     /**
+     * 搜索ShareBuffer视频流当中的sps和pps
+     */
+    public static Pair<String, String> searchSPSandPPSForShareBuffer() {
+        Log.d(TAG, "--------------> search sps and pps of ShareBuffer");
+        try {
+            NV21Convertor convertor = NV21Convertor.getDefaultNV21Convertor();
+            byte[] testImg = createTestImg();
+            byte[] data = convertor.convert(testImg);
+            byte[] sps = null, pps = null;
+            MediaCodec encoder = MediaCodec.createEncoderByType(MIME_TYPE);
+
+            MediaFormat mediaFormat = MediaFormat.createVideoFormat(MIME_TYPE, 320, 240);
+            mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, BITRATE);
+            mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, FRAMERATE);
+            mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
+            mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
+            encoder.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+            encoder.start();
+
+            Log.d(TAG, "create MediaCodec instance ");
+            ByteBuffer[] inputBuffers = encoder.getInputBuffers();
+            ByteBuffer[] outputBuffers = encoder.getOutputBuffers();
+            Log.d(TAG, "get input buffers and output buffers");
+            BufferInfo info = new BufferInfo();
+            byte[] csd = new byte[128];
+            int len = 0, p = 4, q = 4;
+
+            long elapsed = 0, now = System.nanoTime() / 1000;
+            Log.d(TAG, "start fulling data");
+            while (elapsed < 3000000 && (sps == null || pps == null)) {
+                // Some encoders won't give us the SPS and PPS unless they receive something to encode first...
+                int bufferIndex = encoder.dequeueInputBuffer(1000000 / 15);
+                if (bufferIndex >= 0) {
+                    if (inputBuffers[bufferIndex].capacity() < data.length) {
+                        Log.d(TAG, "the input buffer capacity is invalid");
+                        throw new RuntimeException("The input buffer is not big enough.");
+                    }
+                    inputBuffers[bufferIndex].clear();
+                    inputBuffers[bufferIndex].put(data, 0, data.length);
+                    encoder.queueInputBuffer(bufferIndex, 0, data.length, System.nanoTime() / 1000,
+                            0);
+                } else {
+                    if (VERBOSE) {
+                        Log.e(TAG, "No buffer available !");
+                    }
+                }
+
+                Log.d(TAG, "now looking for SPS and PPS");
+                // We are looking for the SPS and the PPS here. As always, Android is very inconsistent, I have observed that some
+                // encoders will give those parameters through the MediaFormat object (that is the normal behaviour).
+                // But some other will not, in that case we try to find a NAL unit of type 7 or 8 in the byte stream outputed by the encoder...
+
+                int index = encoder.dequeueOutputBuffer(info, 1000000 / 15);
+
+                if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    Log.d(TAG, "INFO OUTPUT FORMAT CHANGED");
+                    // The PPS and PPS should be there
+                    MediaFormat format = encoder.getOutputFormat();
+                    ByteBuffer spsb = format.getByteBuffer("csd-0");
+                    ByteBuffer ppsb = format.getByteBuffer("csd-1");
+                    sps = new byte[spsb.capacity() - 4];
+                    spsb.position(4);
+                    spsb.get(sps, 0, sps.length);
+                    pps = new byte[ppsb.capacity() - 4];
+                    ppsb.position(4);
+                    ppsb.get(pps, 0, pps.length);
+                    break;
+                } else if (index == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
+                    Log.d(TAG, "INFO OUTPUT BUFFER CHANGED ");
+                    outputBuffers = encoder.getOutputBuffers();
+                } else if (index >= 0) {
+                    Log.d(TAG, "index normal ");
+                    len = info.size;
+                    if (len < 128) {
+                        outputBuffers[index].get(csd, 0, len);
+                        if (len > 0 && csd[0] == 0 && csd[1] == 0 && csd[2] == 0 && csd[3] == 1) {
+                            // Parses the SPS and PPS, they could be in two different packets and in a different order
+                            //depending on the phone so we don't make any assumption about that
+                            while (p < len) {
+                                while (!(csd[p + 0] == 0 && csd[p + 1] == 0 && csd[p + 2] == 0 && csd[p + 3] == 1) && p + 3 < len)
+                                    p++;
+                                if (p + 3 >= len) p = len;
+                                if ((csd[q] & 0x1F) == 7) {
+                                    sps = new byte[p - q];
+                                    System.arraycopy(csd, q, sps, 0, p - q);
+                                } else {
+                                    pps = new byte[p - q];
+                                    System.arraycopy(csd, q, pps, 0, p - q);
+                                }
+                                p += 4;
+                                q = p;
+                            }
+                        }
+                    }
+                    encoder.releaseOutputBuffer(index, false);
+                }
+                elapsed = System.nanoTime() / 1000 - now;
+            }
+
+            if (sps == null || pps == null) {
+                throw new RuntimeException("Could not determine the SPS & PPS.");
+            }
+            String base64PPS = Base64.encodeToString(pps, 0, pps.length, Base64.NO_WRAP);
+            String base64SPS = Base64.encodeToString(sps, 0, sps.length, Base64.NO_WRAP);
+            Log.d(TAG, "----------------> the finally pps we get for ShareBuffer are " + base64PPS + ", and sps we get are " + base64SPS);
+            return new Pair<>(base64PPS, base64SPS);
+        } catch (IOException e) {
+            Log.d(TAG, "Exception happened ", e);
+        }
+        return null;
+    }
+
+    /**
      * Tries to obtain the SPS and the PPS for the encoder.
      */
     private long searchSPSandPPS() {
-
+        Log.d(TAG, "---------------> search sps and pps");
         ByteBuffer[] inputBuffers = mEncoder.getInputBuffers();
         ByteBuffer[] outputBuffers = mEncoder.getOutputBuffers();
         BufferInfo info = new BufferInfo();
@@ -650,7 +780,9 @@ public class EncoderDebugger {
                 inputBuffers[bufferIndex].put(mData, 0, mData.length);
                 mEncoder.queueInputBuffer(bufferIndex, 0, mData.length, timestamp(), 0);
             } else {
-                if (VERBOSE) Log.e(TAG, "No buffer available !");
+                if (VERBOSE) {
+                    Log.e(TAG, "No buffer available !");
+                }
             }
 
             // We are looking for the SPS and the PPS here. As always, Android is very inconsistent, I have observed that some
@@ -661,7 +793,7 @@ public class EncoderDebugger {
 
             if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
 
-                // The PPS and PPS shoud be there
+                // The PPS and PPS should be there
                 MediaFormat format = mEncoder.getOutputFormat();
                 ByteBuffer spsb = format.getByteBuffer("csd-0");
                 ByteBuffer ppsb = format.getByteBuffer("csd-1");
@@ -709,6 +841,7 @@ public class EncoderDebugger {
         mB64PPS = Base64.encodeToString(mPPS, 0, mPPS.length, Base64.NO_WRAP);
         mB64SPS = Base64.encodeToString(mSPS, 0, mSPS.length, Base64.NO_WRAP);
 
+        Log.d(TAG, "the finally pps we get are " + mB64PPS + ", and sps we get are " + mB64SPS);
         return elapsed;
     }
 
@@ -717,6 +850,7 @@ public class EncoderDebugger {
      * @return How long it took to decode all the NALs
      */
     private long decode(boolean withPrefix) {
+        Log.d(TAG, "start decode with prefix of " + withPrefix);
         int n = 0, i = 0, j = 0;
         long elapsed = 0, now = timestamp();
         int decInputIndex = 0, decOutputIndex = 0;
@@ -726,6 +860,7 @@ public class EncoderDebugger {
 
         while (elapsed < 3000000) {
             // Feeds the decoder with a NAL unit
+            Log.d(TAG, "feeds the decoder with NAL unit");
             if (i < NB_ENCODED) {
                 decInputIndex = mDecoder.dequeueInputBuffer(1000000 / FRAMERATE);
                 if (decInputIndex >= 0) {
@@ -748,18 +883,25 @@ public class EncoderDebugger {
                     mDecoder.queueInputBuffer(decInputIndex, 0, l2, timestamp(), 0);
                     i++;
                 } else {
-                    if (VERBOSE) Log.d(TAG, "No buffer available !");
+                    if (VERBOSE) {
+                        Log.d(TAG, "No buffer available !");
+                    }
                 }
             }
 
+            Log.d(TAG, "tries to get a decoded image");
             // Tries to get a decoded image
             decOutputIndex = mDecoder.dequeueOutputBuffer(info, 1000000 / FRAMERATE);
             if (decOutputIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
+                Log.d(TAG, "decode --> output buffer changed");
                 decOutputBuffers = mDecoder.getOutputBuffers();
             } else if (decOutputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                Log.d(TAG, "decode --> output format changed");
                 mDecOutputFormat = mDecoder.getOutputFormat();
             } else if (decOutputIndex >= 0) {
+                Log.d(TAG, "decode output index are " + decOutputIndex);
                 if (n > 2) {
+                    Log.d(TAG, "successful in encode and decode an image");
                     // We have successfully encoded and decoded an image !
                     int length = info.size;
                     mDecodedVideo[j] = new byte[length];
@@ -768,9 +910,11 @@ public class EncoderDebugger {
                     // Converts the decoded frame to NV21
                     convertToNV21(j);
                     if (j >= NB_DECODED - 1) {
+                        Log.d(TAG, "encode --> flush media codec");
                         flushMediaCodec(mDecoder);
-                        if (VERBOSE)
+                        if (VERBOSE) {
                             Log.v(TAG, "Decoding " + n + " frames took " + elapsed / 1000 + " ms");
+                        }
                         return elapsed;
                     }
                     j++;
@@ -792,6 +936,7 @@ public class EncoderDebugger {
         ByteBuffer[] encOutputBuffers = mEncoder.getOutputBuffers();
 
         while (elapsed < 5000000) {
+            Log.d(TAG, "feeds the encoder with an image");
             // Feeds the encoder with an image
             encInputIndex = mEncoder.dequeueInputBuffer(1000000 / FRAMERATE);
             if (encInputIndex >= 0) {
@@ -800,9 +945,12 @@ public class EncoderDebugger {
                 encInputBuffers[encInputIndex].put(mData, 0, mData.length);
                 mEncoder.queueInputBuffer(encInputIndex, 0, mData.length, timestamp(), 0);
             } else {
-                if (VERBOSE) Log.d(TAG, "No buffer available !");
+                if (VERBOSE) {
+                    Log.d(TAG, "No buffer available !");
+                }
             }
 
+            Log.d(TAG, "tries to get a NAL unit");
             // Tries to get a NAL unit
             encOutputIndex = mEncoder.dequeueOutputBuffer(info, 1000000 / FRAMERATE);
             if (encOutputIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
@@ -813,6 +961,7 @@ public class EncoderDebugger {
                 encOutputBuffers[encOutputIndex].get(mVideo[n++], 0, info.size);
                 mEncoder.releaseOutputBuffer(encOutputIndex, false);
                 if (n >= NB_ENCODED) {
+                    Log.d(TAG, "encode --> flush MediaCodec");
                     flushMediaCodec(mEncoder);
                     return elapsed;
                 }

@@ -107,7 +107,7 @@ public class NV21Convertor {
      * 将原始的相机预览数据转换UV通道
      *
      * @param data   要被转换的原始数据
-     * @param buffer 用于接收被转换后的数据
+     * @param buffer 用于接收被转换后的数据容器
      */
     public void convert(byte[] data, ByteBuffer buffer) {
         byte[] result = convert(data);
@@ -179,12 +179,11 @@ public class NV21Convertor {
     public static NV21Convertor getDefaultNV21Convertor() {
         NV21Convertor nv21Convertor = new NV21Convertor();
         nv21Convertor.setSize(640, 480);
-        nv21Convertor.setSliceHeigth(0);
-        nv21Convertor.setStride(0);
+        nv21Convertor.setSliceHeigth(240);
+        nv21Convertor.setStride(320);
         nv21Convertor.setYPadding(0);
-        nv21Convertor.setPlanar(false);
+        nv21Convertor.setPlanar(true);
         nv21Convertor.setColorPanesReversed(false);
-        nv21Convertor.setColorPanesReversed(true);
 
         return nv21Convertor;
     }

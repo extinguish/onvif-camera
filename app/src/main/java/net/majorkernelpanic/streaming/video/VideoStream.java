@@ -473,6 +473,7 @@ public abstract class VideoStream extends MediaStream {
     }
 
     private NV21Convertor mConvertor;
+    private NV21Convertor mShareBufferNVConverter;
     private static long sStartTimestamp = 0L;
 
     /**
@@ -505,6 +506,12 @@ public abstract class VideoStream extends MediaStream {
             EncoderDebugger debugger = EncoderDebugger.debug(mSettings, mQuality.resX, mQuality.resY);
             mConvertor = debugger.getNV21Convertor();
 
+            // dump the configuration of the NV21Convertor
+            Log.d(TAG, "NV21Convertor --> buffer size are : " + mConvertor.getBufferSize() + ", " +
+                    " is Planar ? " + mConvertor.getPlanar() + ", slice height : " + mConvertor.getSliceHeight() + ", " +
+                    "stride : " + mConvertor.getStride() + ", UVPanesReversed ? " + mConvertor.getUVPanesReversed() + ", " +
+                    "YPadding : " + mConvertor.getYPadding());
+
             mMediaCodec = MediaCodec.createByCodecName(debugger.getEncoderName());
             MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", mQuality.resX, mQuality.resY);
             mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, mQuality.bitrate);
@@ -522,6 +529,10 @@ public abstract class VideoStream extends MediaStream {
 
                 @Override
                 public void onPreviewFrame(byte[] data, Camera camera) {
+                    // 打印出原始帧的每一帧的内容
+                    Log.d(TAG, "----------------> the original frame data <---------------------- ");
+                    // Utilities.printByteArr(TAG, data);
+                    Log.d(TAG, "----------------> end of original frame data <------------------- ");
                     oldnow = now;
                     now = System.nanoTime() / 1000;
                     if (i++ > 3) {
@@ -530,6 +541,7 @@ public abstract class VideoStream extends MediaStream {
                     }
                     try {
                         int bufferIndex = mMediaCodec.dequeueInputBuffer(500000);
+                        Log.d(TAG, "the buffer index are " + bufferIndex);
                         if (bufferIndex >= 0) {
                             inputBuffers[bufferIndex].clear();
                             // 首先将原始预览数据进行UV通道转换
@@ -567,9 +579,8 @@ public abstract class VideoStream extends MediaStream {
 
             mStreaming = true;
         } else {
-            Log.d(TAG, "thread name " + Thread.currentThread().getName());
             Log.d(TAG, "encode the ShareBuffer data");
-            mConvertor = NV21Convertor.getDefaultNV21Convertor();
+            mShareBufferNVConverter = NV21Convertor.getDefaultNV21Convertor();
             // 我们最好也是通过EncoderDebugger来获取到编码器的名称,而不是直接固定写死
             final String MIME_TYPE = "video/avc";
 
@@ -578,8 +589,7 @@ public abstract class VideoStream extends MediaStream {
             final int height = 480;
             MediaFormat mediaFormat = MediaFormat.createVideoFormat(MIME_TYPE, width, height);
 
-            // final int bitRate = width * height * 3 / 2;
-            final int bitRate = 115200;
+            final int bitRate = width * height * 3 / 2;
             mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitRate);
             mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 15);
             mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
@@ -874,11 +884,12 @@ public abstract class VideoStream extends MediaStream {
     private void processShareBufferData() {
         ByteBuffer[] inputBuffers = mMediaCodec.getInputBuffers();
         try {
-            final int readBytesCount;
-            readBytesCount = mFrontCameraMemFile.readBytes(FRONT_CAMERA_DATA_BUF, 1, 0, FRONT_CAMERA_FRAME_LEN);
+
+            final int readBytesCount = mFrontCameraMemFile.readBytes(FRONT_CAMERA_DATA_BUF,
+                    1, 0, FRONT_CAMERA_FRAME_LEN);
             Log.v(TAG, "Read front camera data with length of :  " + readBytesCount);
 
-            int bufferIndex = mMediaCodec.dequeueInputBuffer(-1);
+            int bufferIndex = mMediaCodec.dequeueInputBuffer(500000);
             Log.d(TAG, "buffer index are " + bufferIndex);
             if (bufferIndex >= 0) {
                 // TODO: 目前的问题就是出在NV通道转换的问题
@@ -887,10 +898,12 @@ public abstract class VideoStream extends MediaStream {
 
                 // 在将数据交出去之前,首先将数据进行nv通道转换
                 byte[] availableBuf = new byte[FRONT_CAMERA_FRAME_LEN];
-                NativeYUVConverter.nv21ToYUV420P(FRONT_CAMERA_DATA_BUF, availableBuf,
-                        FRONT_CAMERA_WIDTH * FRONT_CAMERA_HEIGHT);
+//                NativeYUVConverter.nv21ToYUV420P(FRONT_CAMERA_DATA_BUF, availableBuf,
+//                        FRONT_CAMERA_WIDTH * FRONT_CAMERA_HEIGHT);
+                availableBuf = NativeYUVConverter.yv12ToI420(FRONT_CAMERA_DATA_BUF, 640, 480);
 
-                // availableBuf = mConvertor.convert(FRONT_CAMERA_DATA_BUF);
+                // 使用NV21Converter来转换我们的YUV数据
+//                byte[] availableBuf = mShareBufferNVConverter.convert(FRONT_CAMERA_DATA_BUF);
 
                 final int availableBufLen = availableBuf.length;
 
@@ -904,18 +917,18 @@ public abstract class VideoStream extends MediaStream {
                 // Utilities.printByteArr(TAG, availableBuf);
 
                 // 然后将填充了视频数据的ByteBuffer交给MediaCodec进行编码
-                mMediaCodec.queueInputBuffer(bufferIndex,
+                mMediaCodec.queueInputBuffer(
+                        bufferIndex,
                         0,
-                        availableBufLen,
-                        (System.nanoTime() - sStartTimestamp) / 1000,
+                        inputBuffer.position(),
+                        (System.nanoTime() - sStartTimestamp) / 1000, // System.nanoTime() / 1000
                         mStreaming ? 0 : MediaCodec.BUFFER_FLAG_END_OF_STREAM);
             } else {
                 Log.e(TAG, "Read from ShareBuffer --> no buffer available");
             }
-        } catch (IOException e) {
-            Log.e(TAG, "IO exception happened while read data from Camera Memory File", e);
-        } catch (IndexOutOfBoundsException e) {
-            Log.e(TAG, "index out of bounds", e);
+        } catch (final Exception e) {
+            Log.e(TAG, "exception happened while encode the data that read from Camera Memory " +
+                    "File", e);
         }
     }
 
