@@ -27,6 +27,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import net.majorkernelpanic.spydroid.SpydroidApplication;
+import net.majorkernelpanic.spydroid.Utilities;
 import net.majorkernelpanic.streaming.SessionBuilder;
 import net.majorkernelpanic.streaming.exceptions.ConfNotSupportedException;
 import net.majorkernelpanic.streaming.exceptions.StorageUnavailableException;
@@ -113,8 +114,13 @@ public class H264Stream extends VideoStream {
     public synchronized void start() throws IllegalStateException, IOException {
         configure();
         if (!mStreaming) {
+            Log.d(TAG, "the configured sps are " + mConfig.getB64SPS() + ", pps are " + mConfig.getB64PPS());
             byte[] pps = Base64.decode(mConfig.getB64PPS(), Base64.NO_WRAP);
             byte[] sps = Base64.decode(mConfig.getB64SPS(), Base64.NO_WRAP);
+            Log.d(TAG, "pps content --> ");
+            Utilities.printByteArr(TAG, pps);
+            Log.d(TAG, "sps content --> ");
+            Utilities.printByteArr(TAG, sps);
             ((H264Packetizer) mPacketizer).setStreamParameters(pps, sps);
             super.start();
         }
@@ -167,7 +173,6 @@ public class H264Stream extends VideoStream {
                 pps = "aOpDyw==";
                 sps = "Z2QAKawbGoFB+gHhEIpw";
             }
-
             mConfig = new MP4Config(sps, pps);
         }
     }

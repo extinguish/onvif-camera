@@ -104,7 +104,7 @@ public class MediaCodecInputStream extends InputStream {
             }
 
             Log.d(TAG, "encoded data -------------------------------------------------------> ");
-            Utilities.printByteArr(TAG, buffer);
+            // Utilities.printByteArr(TAG, buffer);
 
         } catch (RuntimeException e) {
             Log.e(TAG, "RuntimeException happened while we read the encoded data", e);

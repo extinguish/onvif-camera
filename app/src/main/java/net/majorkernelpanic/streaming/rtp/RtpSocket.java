@@ -299,8 +299,12 @@ public class RtpSocket implements Runnable {
                 }
                 mReport.update(mPackets[mBufferOut].getLength(), System.nanoTime(), (mTimestamps[mBufferOut] / 100L) * (mClock / 1000L) / 10000L);
                 mOldTimestamp = mTimestamps[mBufferOut];
-                if (mCount++ > 30) mSocket.send(mPackets[mBufferOut]);
-                if (++mBufferOut >= mBufferCount) mBufferOut = 0;
+                if (mCount++ > 30) {
+                    mSocket.send(mPackets[mBufferOut]);
+                }
+                if (++mBufferOut >= mBufferCount) {
+                    mBufferOut = 0;
+                }
                 mBufferRequested.release();
             }
         } catch (Exception e) {

@@ -82,6 +82,7 @@ public class H264Packetizer extends AbstractPacketizer implements Runnable {
     }
 
     public void setStreamParameters(byte[] pps, byte[] sps) {
+        Log.d(TAG, "-----> set stream params with pps length " + pps.length + ", sps length " + sps.length);
         this.pps = pps;
         this.sps = sps;
     }
@@ -96,10 +97,12 @@ public class H264Packetizer extends AbstractPacketizer implements Runnable {
         // 如果InputStream本身是来自于MediaCodecInputStream(即来自于MediaCodec当中取出的数据)
         // StreamType为1(这也是默认的流类型)
         if (is instanceof MediaCodecInputStream) {
+            Log.d(TAG, "current media input stream are MediaCodecInputStream");
             streamType = 1;
             socket.setCacheSize(0);
         } else {
             // 此时的InputStream就是普通的InputStream
+            Log.d(TAG, "current input stream are Normal InputStream");
             streamType = 0;
             socket.setCacheSize(400);
         }

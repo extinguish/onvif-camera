@@ -585,8 +585,12 @@ public abstract class VideoStream extends MediaStream {
             final String MIME_TYPE = "video/avc";
 
             mMediaCodec = MediaCodec.createEncoderByType(MIME_TYPE);
-            final int width = 640;
-            final int height = 480;
+            final int width = 320;
+            final int height = 240;
+            // 这里我们应该使用的是经过YUV转换后的数据
+            // 原始视频帧的大小是640 x 480(这是从ShareBuffer当中读取出来的每一帧视频帧的具体大小)
+            // 但是我们在将ShareBuffer的视频帧交给MediaCodec之前，会通过nv通道转换，顺便将原始图片的大小压缩一下，替换成320 x 240
+            // 因此我们在创建MediaCodec时，也需要替换成压缩后的大小
             MediaFormat mediaFormat = MediaFormat.createVideoFormat(MIME_TYPE, width, height);
 
             final int bitRate = width * height * 3 / 2;
@@ -897,10 +901,10 @@ public abstract class VideoStream extends MediaStream {
                 // availableBuf的大小应该是有自己的大小，而不是同FRONT_CAMERA_FRONT_LEN一样的大小
 
                 // 在将数据交出去之前,首先将数据进行nv通道转换
-                byte[] availableBuf = new byte[FRONT_CAMERA_FRAME_LEN];
+//                byte[] availableBuf = new byte[FRONT_CAMERA_FRAME_LEN];
 //                NativeYUVConverter.nv21ToYUV420P(FRONT_CAMERA_DATA_BUF, availableBuf,
 //                        FRONT_CAMERA_WIDTH * FRONT_CAMERA_HEIGHT);
-                availableBuf = NativeYUVConverter.yv12ToI420(FRONT_CAMERA_DATA_BUF, 640, 480);
+                byte[] availableBuf = NativeYUVConverter.yv12ToI420(FRONT_CAMERA_DATA_BUF, 640, 480);
 
                 // 使用NV21Converter来转换我们的YUV数据
 //                byte[] availableBuf = mShareBufferNVConverter.convert(FRONT_CAMERA_DATA_BUF);

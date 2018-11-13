@@ -404,8 +404,15 @@ public class EncoderDebugger {
         }
     }
 
+    /**
+     * 为传输ShareBuffer视频时，常见的测试图片
+     * <p>
+     * 从ShareBuffer当中读取出来的原始的视频帧的大小就是640 x 480.
+     *
+     * @return 图标原始数据
+     */
     public static byte[] createTestImg() {
-        final int size = 320 * 240;
+        final int size = 640 * 480;
         byte[] testImg = new byte[3 * size / 2];
         for (int i = 0; i < size; i++) {
             testImg[i] = (byte) (40 + i % 199);
@@ -626,8 +633,6 @@ public class EncoderDebugger {
         } else {
             if (VERBOSE) Log.e(TAG, "No buffer available !");
         }
-
-
     }
 
     private void releaseDecoder() {
@@ -651,9 +656,11 @@ public class EncoderDebugger {
     public static Pair<String, String> searchSPSandPPSForShareBuffer() {
         Log.d(TAG, "--------------> search sps and pps of ShareBuffer");
         try {
-            NV21Convertor convertor = NV21Convertor.getDefaultNV21Convertor();
+            // NV21Convertor convertor = NV21Convertor.getDefaultNV21Convertor();
+
             byte[] testImg = createTestImg();
-            byte[] data = convertor.convert(testImg);
+            byte[] data = NativeYUVConverter.yv12ToI420(testImg, 640, 480);
+
             byte[] sps = null, pps = null;
             MediaCodec encoder = MediaCodec.createEncoderByType(MIME_TYPE);
 
