@@ -539,7 +539,7 @@ public class RtspServer extends Service {
             else if (request.method.equalsIgnoreCase("OPTIONS")) {
                 Log.v(TAG, "client request method are --> OPTIONS");
                 response.status = Response.STATUS_OK;
-                response.attributes = "Public: DESCRIBE,SETUP,TEARDOWN,PLAY,PAUSE\r\n";
+                response.attributes = "Public: DESCRIBE,SETUP,TEARDOWN,PLAY,PAUSE,GET_PARAMETER\r\n";
                 response.status = Response.STATUS_OK;
             }
 
@@ -653,6 +653,14 @@ public class RtspServer extends Service {
             }
 
             /* ********************************************************************************** */
+            /* ********************************* Method GET_PARAMETER *************************** */
+            /* ********************************************************************************** */
+            else if (request.method.equalsIgnoreCase("GET_PARAMETER")) {
+                Log.v(TAG, "the client request method --> GET_PARAMETER");
+                response.status = Response.STATUS_OK;
+            }
+
+            /* ********************************************************************************** */
             /* ********************************* Unknown method ? ******************************* */
             /* ********************************************************************************** */
             else {
@@ -681,20 +689,25 @@ public class RtspServer extends Service {
             String line;
             Matcher matcher;
 
+            // 如果用户发送的是控请求的话，即input没有接收到任何内容的话，我们认为client是主动断开连接
             // Parsing request method & uri
             if ((line = input.readLine()) == null) {
                 throw new SocketException("Client disconnected");
             }
+            Log.d(TAG, "client raw request content are " + line);
             matcher = regexMethod.matcher(line);
-            matcher.find();
+            boolean matchResult = matcher.find();
+            Log.d(TAG, "match find result are " + matchResult);
             request.method = matcher.group(1);
             request.uri = matcher.group(2);
+            Log.d(TAG, "request uri are " + request.uri + ", request method are " + request.method);
 
             // Parsing headers of the request
             while ((line = input.readLine()) != null && line.length() > 3) {
                 matcher = rexegHeader.matcher(line);
                 matcher.find();
                 request.headers.put(matcher.group(1).toLowerCase(Locale.US), matcher.group(2));
+                Log.d(TAG, "REQUEST HEADER --> " + line);
             }
             if (line == null) {
                 throw new SocketException("Client disconnected");
