@@ -182,4 +182,17 @@ public class DeviceBackBean {
         this.sourceWidth = sourceWidth;
     }
 
+    private static DeviceBackBean sDeviceBackBean;
+
+    public static DeviceBackBean getDeviceBackBean() {
+        if (sDeviceBackBean == null) {
+            sDeviceBackBean = new DeviceBackBean();
+        }
+        return sDeviceBackBean;
+    }
+
+    public static void setDeviceBackBean(DeviceBackBean deviceBackBean) {
+        sDeviceBackBean = deviceBackBean;
+    }
+
 }

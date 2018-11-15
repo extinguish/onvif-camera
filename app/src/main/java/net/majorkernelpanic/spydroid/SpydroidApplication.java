@@ -104,8 +104,6 @@ public class SpydroidApplication extends android.app.Application {
 
     private static SpydroidApplication sApplication;
 
-    private DeviceBackBean deviceBackBean;
-
     @Override
     public void onCreate() {
 
@@ -203,17 +201,6 @@ public class SpydroidApplication extends android.app.Application {
             batteryLevel = intent.getIntExtra("level", 0);
         }
     };
-
-    public DeviceBackBean getDeviceBackBean() {
-        if (deviceBackBean == null) {
-            deviceBackBean = new DeviceBackBean();
-        }
-        return deviceBackBean;
-    }
-
-    public void setDeviceBackBean(DeviceBackBean deviceBackBean) {
-        this.deviceBackBean = deviceBackBean;
-    }
 
     private AdasServiceConnection adasServiceConnection;
     private Intent bindAdasServiceIntent;

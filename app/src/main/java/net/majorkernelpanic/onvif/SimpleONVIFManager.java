@@ -168,13 +168,12 @@ public class SimpleONVIFManager {
 
     private void initData() {
         Log.d(TAG, "init the ONVIF data");
-        SpydroidApplication application = (SpydroidApplication) ((Activity) context).getApplication();
-        DeviceBackBean deviceBackBean = application.getDeviceBackBean();
+        DeviceBackBean deviceBackBean = DeviceBackBean.getDeviceBackBean();
         deviceBackBean.setIpAddress(serverIp);
         deviceBackBean.setUserName(DeviceStaticInfo.USER_NAME);
         deviceBackBean.setPsw(DeviceStaticInfo.USER_PSW);
         deviceBackBean.setServiceUrl("http://" + serverIp + ":8080/onvif/device_service");
-        application.setDeviceBackBean(deviceBackBean);
+        DeviceBackBean.setDeviceBackBean(deviceBackBean);
     }
 
     private void sendPacket(byte[] data) {

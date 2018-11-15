@@ -231,7 +231,7 @@ public class ONVIFHttpServer extends TinyHttpServer {
                 HttpEntityEnclosingRequest post = (HttpEntityEnclosingRequest) httpRequest;
                 byte[] entityContent = EntityUtils.toByteArray(post.getEntity());
                 String content = new String(entityContent, Charset.forName("UTF-8"));
-                DeviceBackBean deviceBackBean = application.getDeviceBackBean();
+                DeviceBackBean deviceBackBean = DeviceBackBean.getDeviceBackBean();
                 Log.d(TAG, "the request back data are " + deviceBackBean.toString());
 
                 // 返回给client的内容
