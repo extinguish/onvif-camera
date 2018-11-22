@@ -20,6 +20,21 @@
 
 package net.majorkernelpanic.streaming.rtsp;
 
+import android.annotation.SuppressLint;
+import android.app.Service;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.os.Binder;
+import android.os.IBinder;
+import android.preference.PreferenceManager;
+import android.text.TextUtils;
+import android.util.Log;
+
+import net.majorkernelpanic.streaming.Session;
+import net.majorkernelpanic.streaming.SessionBuilder;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -35,21 +50,6 @@ import java.util.Locale;
 import java.util.WeakHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import net.majorkernelpanic.streaming.Session;
-import net.majorkernelpanic.streaming.SessionBuilder;
-
-import android.annotation.SuppressLint;
-import android.app.Service;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.content.SharedPreferences.Editor;
-import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
-import android.os.Binder;
-import android.os.Handler;
-import android.os.IBinder;
-import android.preference.PreferenceManager;
-import android.util.Log;
 
 /**
  * SpyDroid-IpCamera当中的推流过程同我们传统的推流过程不一样，
@@ -245,7 +245,9 @@ public class RtspServer extends Service {
     public boolean isStreaming() {
         for (Session session : mSessions.keySet()) {
             if (session != null) {
-                if (session.isStreaming()) return true;
+                if (session.isStreaming()) {
+                    return true;
+                }
             }
         }
         return false;
@@ -418,6 +420,8 @@ public class RtspServer extends Service {
         }
     }
 
+    private static final boolean HANDLE_K7_BUG = false;
+
     // One thread per client
     class WorkerThread extends Thread implements Runnable {
         private final Socket mClient;
@@ -474,6 +478,23 @@ public class RtspServer extends Service {
                         Log.e(TAG, e.getMessage() != null ? e.getMessage() : "An error occurred");
                         e.printStackTrace();
                         response = new Response(request);
+                    }
+                } else {
+                    if (HANDLE_K7_BUG) {
+                        // 此时我们获取到的request为null
+                        // TODO: request为null,可能是因为用户发送的是空请求,当然也有可能是其他的原因
+                        // TODO: 这里需要进行更加深入的探讨
+                        // 此时我们直接忽略本次请求,等待下一个请求方法
+                        // 我们不能直接通过当前是否正在streaming来判断是否忽略空请求
+                        // 因为同时活跃的session不止一个
+                        if (isStreaming()) {
+                            Log.i(TAG, "we are streaming already, so just ignore this empty request");
+                            continue;
+                        } else {
+                            Log.i(TAG, "we are not streaming now, so let the normal procedure to handle this");
+                        }
+                    } else {
+                        Log.w(TAG, "the response is null, but we do not need to handle this");
                     }
                 }
 
@@ -618,11 +639,13 @@ public class RtspServer extends Service {
                 Log.v(TAG, "the client request method --> PLAY");
                 String requestAttributes = "RTP-Info: ";
                 if (mSession.trackExists(0)) { // 音频轨道是否存在
+                    Log.v(TAG, "the audio track exists");
                     requestAttributes += "url=rtsp://" +
                             mClient.getLocalAddress().getHostAddress() + ":" +
                             mClient.getLocalPort() + "/trackID=" + 0 + ";seq=0,";
                 }
                 if (mSession.trackExists(1)) { // 视频轨道是否存在
+                    Log.v(TAG, "the video track exists");
                     requestAttributes += "url=rtsp://" +
                             mClient.getLocalAddress().getHostAddress() + ":" +
                             mClient.getLocalPort() + "/trackID=" + 1 + ";seq=0,";
@@ -696,6 +719,17 @@ public class RtspServer extends Service {
                 throw new SocketException("Client disconnected");
             }
             Log.d(TAG, "client raw request content are " + line);
+            if (TextUtils.isEmpty(line)) {
+                if (HANDLE_K7_BUG) {
+                    Log.w(TAG, "the client raw request are empty");
+                    // 对于有为的设备来说,如果此时的sessionID不为空,那么就代表我们已经开始给设备
+                    // 进行推流了,虽然不知道为什么有为的设备会向我们发送一个空的请求,但是我们需要
+                    // 忽略这个请求
+                    return null;
+                } else {
+                    Log.w(TAG, "the client raw request are empty, but we do not need to handle this empty request");
+                }
+            }
             matcher = regexMethod.matcher(line);
             boolean matchResult = matcher.find();
             Log.d(TAG, "match find result are " + matchResult);
@@ -760,8 +794,11 @@ public class RtspServer extends Service {
                     "\r\n" +
                     content;
 
+            Log.d(TAG, "");
+            Log.d(TAG, "------------------------>RESPONSE START<----------------------------");
             Log.d(TAG, response.replace("\r", ""));
-
+            Log.d(TAG, "------------------------->RESPONSE END<----------------------------");
+            Log.d(TAG, "");
             output.write(response.getBytes());
         }
     }

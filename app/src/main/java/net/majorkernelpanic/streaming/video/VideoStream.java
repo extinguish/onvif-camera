@@ -405,7 +405,9 @@ public abstract class VideoStream extends MediaStream {
             mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
             mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
             mMediaRecorder.setVideoEncoder(mVideoEncoder);
-            mMediaRecorder.setPreviewDisplay(mSurfaceView.getHolder().getSurface());
+            if (!SpydroidApplication.USE_SHARE_BUFFER_DATA) {
+                mMediaRecorder.setPreviewDisplay(mSurfaceView.getHolder().getSurface());
+            }
             mMediaRecorder.setVideoSize(mRequestedQuality.resX, mRequestedQuality.resY);
             mMediaRecorder.setVideoFrameRate(mRequestedQuality.framerate);
 
@@ -706,8 +708,10 @@ public abstract class VideoStream extends MediaStream {
         if (mSurfaceView == null) {
             throw new InvalidSurfaceException("Invalid surface !");
         }
-        if (mSurfaceView.getHolder() == null || !mSurfaceReady) {
-            throw new InvalidSurfaceException("Invalid surface !");
+        if (!SpydroidApplication.USE_SHARE_BUFFER_DATA) {
+            if (mSurfaceView.getHolder() == null || !mSurfaceReady) {
+                throw new InvalidSurfaceException("Invalid surface !");
+            }
         }
 
         if (mCamera == null) {
@@ -746,7 +750,9 @@ public abstract class VideoStream extends MediaStream {
                         mSurfaceView.startGLThread();
                         mCamera.setPreviewTexture(mSurfaceView.getSurfaceTexture());
                     } else {
-                        mCamera.setPreviewDisplay(mSurfaceView.getHolder());
+                        if (!SpydroidApplication.USE_SHARE_BUFFER_DATA) {
+                            mCamera.setPreviewDisplay(mSurfaceView.getHolder());
+                        }
                     }
                 } catch (IOException e) {
                     throw new InvalidSurfaceException("Invalid surface !");

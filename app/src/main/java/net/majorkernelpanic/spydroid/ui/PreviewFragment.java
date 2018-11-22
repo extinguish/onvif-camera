@@ -22,6 +22,7 @@ package net.majorkernelpanic.spydroid.ui;
 
 import net.majorkernelpanic.http.TinyHttpServer;
 import net.majorkernelpanic.spydroid.R;
+import net.majorkernelpanic.spydroid.SpydroidApplication;
 import net.majorkernelpanic.spydroid.api.CustomHttpServer;
 import net.majorkernelpanic.spydroid.api.CustomRtspServer;
 import net.majorkernelpanic.streaming.SessionBuilder;
@@ -75,11 +76,11 @@ public class PreviewFragment extends Fragment {
 		mTextView = (TextView)rootView.findViewById(R.id.tooltip);
 		
 		if (((SpydroidActivity)getActivity()).device == ((SpydroidActivity)getActivity()).TABLET) {
-
-			mSurfaceView = (SurfaceView)rootView.findViewById(R.id.tablet_camera_view);
-			SessionBuilder.getInstance().setSurfaceView(mSurfaceView);
-
-		} 
+			if (!SpydroidApplication.USE_SHARE_BUFFER_DATA) {
+				mSurfaceView = (SurfaceView)rootView.findViewById(R.id.tablet_camera_view);
+				SessionBuilder.getInstance().setSurfaceView(mSurfaceView);
+			}
+		}
 		
 		return rootView;
 	}

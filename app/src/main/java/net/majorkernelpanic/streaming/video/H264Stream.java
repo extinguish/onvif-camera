@@ -275,7 +275,9 @@ public class H264Stream extends VideoStream {
             mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
             mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
             mMediaRecorder.setVideoEncoder(mVideoEncoder);
-            mMediaRecorder.setPreviewDisplay(mSurfaceView.getHolder().getSurface());
+            if (!SpydroidApplication.USE_SHARE_BUFFER_DATA) {
+                mMediaRecorder.setPreviewDisplay(mSurfaceView.getHolder().getSurface());
+            }
             mMediaRecorder.setVideoSize(mRequestedQuality.resX, mRequestedQuality.resY);
             mMediaRecorder.setVideoFrameRate(mRequestedQuality.framerate);
             mMediaRecorder.setVideoEncodingBitRate((int) (mRequestedQuality.bitrate * 0.8));

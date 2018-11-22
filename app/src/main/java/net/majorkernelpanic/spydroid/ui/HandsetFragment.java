@@ -133,9 +133,11 @@ public class HandsetFragment extends Fragment {
                             mDescription2.setVisibility(View.VISIBLE);
                             mLine2.setVisibility(View.VISIBLE);
                         }
-                        if (!mHttpServer.isStreaming() && !mRtspServer.isStreaming())
+                        if (!mHttpServer.isStreaming() && !mRtspServer.isStreaming()) {
                             displayIpAddress();
-                        else streamingState(1);
+                        } else {
+                            streamingState(1);
+                        }
                     }
                 }
             }

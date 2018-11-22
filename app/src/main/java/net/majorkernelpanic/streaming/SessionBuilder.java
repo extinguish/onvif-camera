@@ -23,6 +23,7 @@ package net.majorkernelpanic.streaming;
 import java.io.IOException;
 import java.net.InetAddress;
 
+import net.majorkernelpanic.spydroid.SpydroidApplication;
 import net.majorkernelpanic.streaming.audio.AACStream;
 import net.majorkernelpanic.streaming.audio.AMRNBStream;
 import net.majorkernelpanic.streaming.audio.AudioQuality;
@@ -162,8 +163,11 @@ public class SessionBuilder {
             VideoStream video = session.getVideoTrack();
             video.setFlashState(mFlash);
             video.setVideoQuality(mVideoQuality);
-            video.setSurfaceView(mSurfaceView);
-            video.setPreviewOrientation(mOrientation);
+            // 当我们使用ShareBuffer作为视频源时,我们就不再需要预览功能了
+            if (!SpydroidApplication.USE_SHARE_BUFFER_DATA) {
+                video.setSurfaceView(mSurfaceView);
+                video.setPreviewOrientation(mOrientation);
+            }
             video.setDestinationPorts(5006);
         }
 

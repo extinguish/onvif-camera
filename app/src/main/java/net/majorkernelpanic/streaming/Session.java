@@ -333,7 +333,9 @@ public class Session {
             @Override
             public void run() {
                 if (mVideoStream != null) {
-                    mVideoStream.setSurfaceView(view);
+                    if (!SpydroidApplication.USE_SHARE_BUFFER_DATA) {
+                        mVideoStream.setSurfaceView(view);
+                    }
                 }
             }
         });

@@ -93,9 +93,12 @@ public class SpydroidActivity extends FragmentActivity {
             mAdapter = new SectionsPagerAdapter(getSupportFragmentManager());
             mViewPager = (ViewPager) findViewById(R.id.handset_pager);
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-            mSurfaceView = (SurfaceView) findViewById(R.id.handset_camera_view);
-            SessionBuilder.getInstance().setSurfaceView(mSurfaceView);
-            SessionBuilder.getInstance().setPreviewOrientation(90);
+            // 如果是在使用ShareBuffer时,我们就不需要使用该SurfaceView了
+            if (!SpydroidApplication.USE_SHARE_BUFFER_DATA) {
+                mSurfaceView = (SurfaceView) findViewById(R.id.handset_camera_view);
+                SessionBuilder.getInstance().setSurfaceView(mSurfaceView);
+                SessionBuilder.getInstance().setPreviewOrientation(90);
+            }
         } else {
             // Tablet detected !
             device = TABLET;
