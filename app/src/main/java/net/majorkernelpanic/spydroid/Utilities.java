@@ -36,6 +36,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.DatagramPacket;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -113,35 +114,33 @@ public class Utilities {
                     (rawIpAddress >> 24) & 0xff);
             Log.d(TAG, "the ip address of the ONVIF-IPCamera are " + ipAddress);
             return ipAddress;
-        } else if ((ipAddress = Utilities.getLocalIpAddress(true)) != null) {
+        } else if ((ipAddress = Utilities.getLocalIpAddress()) != null) {
             return ipAddress;
+        } else {
+            Log.e(TAG, "fail to get local device ip address");
+            return null;
         }
-
-        throw new RuntimeException("fail to get local device ip address");
     }
 
 
     /**
      * Returns the IP address of the first configured interface of the device
      *
-     * @param removeIPv6 If true, IPv6 addresses are ignored
      * @return the IP address of the first configured interface or null
      */
-    public static String getLocalIpAddress(boolean removeIPv6) {
+    public static String getLocalIpAddress() {
         try {
             for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements(); ) {
                 NetworkInterface intf = en.nextElement();
                 for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements(); ) {
                     InetAddress inetAddress = enumIpAddr.nextElement();
-                    if (inetAddress.isSiteLocalAddress() &&
-                            !inetAddress.isAnyLocalAddress() &&
-                            (!removeIPv6 || isIpv4Address(inetAddress.getHostAddress()))) {
+                    if (!inetAddress.isLoopbackAddress() && inetAddress instanceof Inet4Address) {
                         return inetAddress.getHostAddress();
                     }
                 }
             }
-        } catch (SocketException e) {
-            Log.e(TAG, "Socket exception happened", e);
+        } catch (final Exception e) {
+            Log.e(TAG, "Exception happened while get the device ip address", e);
         }
         return null;
     }

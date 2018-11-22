@@ -5,7 +5,7 @@ $(info "the yuv path are :" $(YUV_PATH))
 
 include $(YUV_PATH)/libyuv/Android.mk
 
-##################################################33
+##################################################
 include $(CLEAR_VARS) # CLEAR_VARS will not clear LOCAL_PATH, but other variables will be cleared. but other module may define the LOCAL_PATH again
 
 $(info "current local path are :" $(ROOT_PATH))

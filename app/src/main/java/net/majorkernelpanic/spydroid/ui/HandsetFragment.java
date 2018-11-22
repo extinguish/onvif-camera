@@ -182,7 +182,7 @@ public class HandsetFragment extends Fragment {
             mLine2.append(ip);
             mLine2.append(":" + mRtspServer.getPort());
             streamingState(0);
-        } else if ((ipAddress = Utilities.getLocalIpAddress(true)) != null) {
+        } else if ((ipAddress = Utilities.getLocalIpAddress()) != null) {
             mLine1.setText(mHttpServer.isHttpsEnabled() ? "https://" : "http://");
             mLine1.append(ipAddress);
             mLine1.append(":" + mHttpServer.getHttpPort());

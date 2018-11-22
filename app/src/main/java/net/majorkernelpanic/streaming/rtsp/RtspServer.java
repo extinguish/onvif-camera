@@ -692,6 +692,7 @@ public class RtspServer extends Service {
             // 如果用户发送的是控请求的话，即input没有接收到任何内容的话，我们认为client是主动断开连接
             // Parsing request method & uri
             if ((line = input.readLine()) == null) {
+                Log.w(TAG, "the client has send an empty request");
                 throw new SocketException("Client disconnected");
             }
             Log.d(TAG, "client raw request content are " + line);

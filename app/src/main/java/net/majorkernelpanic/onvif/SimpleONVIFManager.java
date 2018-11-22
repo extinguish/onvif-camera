@@ -1,13 +1,11 @@
 package net.majorkernelpanic.onvif;
 
-import android.app.Activity;
 import android.content.Context;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
 
-import net.majorkernelpanic.spydroid.SpydroidApplication;
 import net.majorkernelpanic.spydroid.Utilities;
 
 import org.xml.sax.SAXException;
@@ -16,6 +14,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.net.SocketTimeoutException;
@@ -86,6 +85,9 @@ public class SimpleONVIFManager {
     // 但是无法被ONVIF Device Test Tool发现
     // TODO: 现在无论我们将我们的组播地址设定为什么样子的值，都是无法接收ONVIF Device Test Tool
     // 的直接发现，除非我们手动的进行probe消息测试
+    // onvif协议当中规定组播探测数据报发送到的目的地址是IPV4地址:239.255.255.250
+    // 所以Android设备如果想要实现onvif,就必须要确保自己可以接收来自239.255.255.250
+    // 地址发送出来的数据报
     private static final String MULTICAST_HOST_IP = "239.255.255.250"; // 这是正式的ws-service要求的组播地址，如果希望我们的IPCamera被发现，必须将我们的组播地址设置为该值
 //    private static final String MULTICAST_HOST_IP = "0:0:0:0:0:ffff:efff:fffa";
 //    private static final String MULTICAST_HOST_IP = "ff00:0:0:0:0:0:efff:fffa";
@@ -117,6 +119,7 @@ public class SimpleONVIFManager {
         multicastSocket = createMulticastSocket();
 
         serverIp = Utilities.getLocalDevIp(context);
+        Log.d(TAG, "the current device ip address we get are --> " + serverIp);
         initData();
 
         if (SEND_HELLO_PACKET) {
@@ -152,10 +155,15 @@ public class SimpleONVIFManager {
                 Log.d(TAG, "fail to held the WifiMulticastLock, then user may fail to receive the Multicast message");
             }
             InetAddress groupAddress = InetAddress.getByName(MULTICAST_HOST_IP);
-            MulticastSocket multicastSocket = new MulticastSocket(MULTICAST_PORT);
+            InetSocketAddress inetSocketAddress = new InetSocketAddress(MULTICAST_HOST_IP, MULTICAST_PORT);
+            // MulticastSocket multicastSocket = new MulticastSocket(MULTICAST_PORT);
+            MulticastSocket multicastSocket = new MulticastSocket(inetSocketAddress);
             multicastSocket.setTimeToLive(255);
             multicastSocket.setSoTimeout(PACKET_SO_TIMEOUT);
-            multicastSocket.setNetworkInterface(NetworkInterface.getByName("wlan0"));
+            // 以下的设置会将组播强制设定为为某个固定网口,这样会出现错误,很严重的错误.
+            // 因为在正式使用时,我们同部标机进行对接时,网口的名称就是"eth0",在使用4g联网时,网口就是"ccmni0"
+            // 所以不能强制指定,除非确定最终用途
+            // multicastSocket.setNetworkInterface(NetworkInterface.getByName("wlan0"));
             multicastSocket.joinGroup(groupAddress);
             return multicastSocket;
         } catch (UnknownHostException e) {

@@ -54,7 +54,8 @@
 
         <!--ONVIF Http Server-->
         <service android:name="net.majorkernelpanic.onvif.network.ONVIFHttpServer" />
-        <service android:name=".IPCameraService" />
+        <service android:name=".IPCameraService"
+            android:exported="true"/>
 
     </application>
 
