@@ -276,7 +276,10 @@ public class H264Packetizer extends AbstractPacketizer implements Runnable {
                 }
                 if (naluLength == 0) {
                     Log.e(TAG, "NAL unit with NULL size found...");
-                } else if (header[3] == 0xFF && header[2] == 0xFF && header[1] == 0xFF && header[0] == 0xFF) {
+                } else if (header[3] == 0xFF &&
+                        header[2] == 0xFF &&
+                        header[1] == 0xFF &&
+                        header[0] == 0xFF) {
                     Log.e(TAG, "NAL unit with 0xFFFFFFFF size found...");
                 }
             }

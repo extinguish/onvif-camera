@@ -83,6 +83,21 @@ public abstract class MediaStream implements Stream {
     protected MediaRecorder mMediaRecorder;
     protected MediaCodec mMediaCodec;
 
+    /**
+     * RTP视频数据经过tcp传递
+     */
+    public static final int RTP_OVER_TCP = 1 << 1;
+    /**
+     * RTP视频数据经过udp传递
+     */
+    public static final int RTP_OVER_UDP = 1 << 2;
+
+    /**
+     * RTP层当中视频流的传输通道
+     * 目前RTP层当中视频流的传输有两种方式，TCP和UDP.
+     */
+    private int mStreamDataTransferChannel;
+
     static {
         // We determine whether or not the MediaCodec API should be used
         try {
@@ -234,11 +249,15 @@ public abstract class MediaStream implements Stream {
      */
     @Override
     public synchronized void start() throws IllegalStateException, IOException {
-        if (mDestination == null)
+        if (mDestination == null) {
             throw new IllegalStateException("No destination ip address set for the stream !");
+        }
 
-        if (mRtpPort <= 0 || mRtcpPort <= 0)
+        if (mRtpPort <= 0 || mRtcpPort <= 0) {
             throw new IllegalStateException("No destination ports set for the stream !");
+        }
+
+        Log.d(TAG, "transfer video data with channel of " + mStreamDataTransferChannel);
 
         mPacketizer.setTimeToLive(mTTL);
 
@@ -249,6 +268,11 @@ public abstract class MediaStream implements Stream {
             Log.v(TAG, "Starts Streaming encode with MediaRecorder");
             encodeWithMediaRecorder();
         }
+    }
+
+    @Override
+    public void setTransferChannel(int transferChannel) {
+        this.mStreamDataTransferChannel = transferChannel;
     }
 
     /**

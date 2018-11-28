@@ -114,4 +114,9 @@ public interface Stream {
 
     boolean isStreaming();
 
+    /**
+     * 设置RTP层数据传输的通道
+     */
+    void setTransferChannel(int transferChannel);
+
 }

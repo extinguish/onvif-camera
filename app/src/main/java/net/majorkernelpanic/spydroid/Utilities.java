@@ -39,7 +39,6 @@ import java.net.DatagramPacket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
-import java.net.SocketException;
 import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.Date;

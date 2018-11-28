@@ -105,7 +105,7 @@ public abstract class VideoStream extends MediaStream {
     protected int mCameraImageFormat;
     protected int mMaxFps = 0;
 
-    private MemoryFile mFrontCameraMemFile, mBackCameraMemFile;
+    private MemoryFile mFrontCameraMemFile;
 
     /**
      * Don't use this class directly.
@@ -131,7 +131,6 @@ public abstract class VideoStream extends MediaStream {
 
             SpydroidApplication application = SpydroidApplication.getInstance();
             mFrontCameraMemFile = application.getFrontCameraMemFile();
-            mBackCameraMemFile = application.getBackCameraMemFile();
         } else {
             // 当我们使用ShareBuffer时,对于系统的相机就需要禁用了
             setCamera(camera);
@@ -320,7 +319,9 @@ public abstract class VideoStream extends MediaStream {
      * if {@link #startPreview()} has not aready been called.
      */
     public synchronized void start() throws IllegalStateException, IOException {
-        if (!mPreviewStarted) mCameraOpenedManually = false;
+        if (!mPreviewStarted) {
+            mCameraOpenedManually = false;
+        }
         super.start();
         Log.d(TAG, "Stream configuration: FPS: " + mQuality.framerate + " Width: " + mQuality.resX + " Height: " + mQuality.resY);
     }
@@ -475,7 +476,7 @@ public abstract class VideoStream extends MediaStream {
     }
 
     private NV21Convertor mConvertor;
-    private NV21Convertor mShareBufferNVConverter;
+    // private NV21Convertor mShareBufferNVConverter;
     private static long sStartTimestamp = 0L;
 
     /**
@@ -582,7 +583,7 @@ public abstract class VideoStream extends MediaStream {
             mStreaming = true;
         } else {
             Log.d(TAG, "encode the ShareBuffer data");
-            mShareBufferNVConverter = NV21Convertor.getDefaultNV21Convertor();
+            // mShareBufferNVConverter = NV21Convertor.getDefaultNV21Convertor();
             // 我们最好也是通过EncoderDebugger来获取到编码器的名称,而不是直接固定写死
             final String MIME_TYPE = "video/avc";
 

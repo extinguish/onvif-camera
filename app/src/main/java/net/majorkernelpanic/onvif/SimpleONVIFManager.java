@@ -14,9 +14,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
-import java.net.NetworkInterface;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.UUID;
@@ -155,15 +153,20 @@ public class SimpleONVIFManager {
                 Log.d(TAG, "fail to held the WifiMulticastLock, then user may fail to receive the Multicast message");
             }
             InetAddress groupAddress = InetAddress.getByName(MULTICAST_HOST_IP);
-            InetSocketAddress inetSocketAddress = new InetSocketAddress(MULTICAST_HOST_IP, MULTICAST_PORT);
-            // MulticastSocket multicastSocket = new MulticastSocket(MULTICAST_PORT);
-            MulticastSocket multicastSocket = new MulticastSocket(inetSocketAddress);
+//            InetSocketAddress inetSocketAddress = new InetSocketAddress(MULTICAST_HOST_IP, MULTICAST_PORT);
+            MulticastSocket multicastSocket = new MulticastSocket(MULTICAST_PORT);
+//            MulticastSocket multicastSocket = new MulticastSocket(inetSocketAddress);
+            multicastSocket.setReuseAddress(true);
             multicastSocket.setTimeToLive(255);
             multicastSocket.setSoTimeout(PACKET_SO_TIMEOUT);
             // 以下的设置会将组播强制设定为为某个固定网口,这样会出现错误,很严重的错误.
             // 因为在正式使用时,我们同部标机进行对接时,网口的名称就是"eth0",在使用4g联网时,网口就是"ccmni0"
             // 所以不能强制指定,除非确定最终用途
             // multicastSocket.setNetworkInterface(NetworkInterface.getByName("wlan0"));
+            // 在具体生产环境当中,Adas设备本身是通过网线连接到部标机当中的,然后通过部标机进行联网
+            // 然后我们这里指定网口为网线连接的网口(即连接到部标机的网口)
+            // multicastSocket.setNetworkInterface(NetworkInterface.getByName("eth0"));
+            multicastSocket.setBroadcast(true);
             multicastSocket.joinGroup(groupAddress);
             return multicastSocket;
         } catch (UnknownHostException e) {

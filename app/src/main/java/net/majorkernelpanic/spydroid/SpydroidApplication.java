@@ -69,7 +69,7 @@ public class SpydroidApplication extends android.app.Application {
      *
      * FIXME: guoshichao 目前这里的实现不太好,是通过一个单独的全局变量来控制. 正常的好的实现,应该是通过两种单独的状态来进行控制.
      */
-    public static boolean USE_SHARE_BUFFER_DATA = true;
+    public static boolean USE_SHARE_BUFFER_DATA = false;
 
     /**
      * Default quality of video streams.

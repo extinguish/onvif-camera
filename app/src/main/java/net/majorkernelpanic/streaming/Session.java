@@ -42,6 +42,8 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Log;
 
+import static net.majorkernelpanic.streaming.MediaStream.RTP_OVER_UDP;
+
 /**
  * You should instantiate this class with the {@link SessionBuilder}.<br />
  * This is the class you will want to use to stream audio and or video to some peer using RTP.<br />
@@ -484,6 +486,7 @@ public class Session {
 
     /**
      * Asynchronously starts all streams of the session.
+     * 该方法只被一个地方调用: {@link RtspClient#startStream()}
      **/
     public void start() {
         Log.v(TAG, "starts all streams asynchronously");
@@ -511,11 +514,12 @@ public class Session {
      * Starts a stream in a synchronous manner.
      * Throws exceptions in addition to calling a callback.
      *
-     * @param id The id of the stream to start(这里的id值主要是为了区分音频流和视频流);
-     *           0是audio stream
-     *           1是video stream
+     * @param id   The id of the stream to start(这里的id值主要是为了区分音频流和视频流);
+     *             0是audio stream
+     *             1是video stream
+     * @param mode 传输流是通过tcp通道还是udp通道进行传输
      **/
-    public void syncStart(int id)
+    public void syncStart(int id, int mode)
             throws CameraInUseException,
             ConfNotSupportedException,
             InvalidSurfaceException,
@@ -523,6 +527,7 @@ public class Session {
         Log.d(TAG, "start stream with id of " + getStreamName(id));
         Stream stream = id == 0 ? mAudioStream : mVideoStream;
         if (stream != null && !stream.isStreaming()) {
+            stream.setTransferChannel(mode);
             try {
                 InetAddress destination = InetAddress.getByName(mDestination);
                 stream.setTimeToLive(mTimeToLive);
@@ -556,22 +561,28 @@ public class Session {
                 postError(ERROR_OTHER, id, e);
                 throw e;
             }
+        } else {
+            Log.e(TAG, "streaming abnormal");
         }
     }
 
     /**
+     * syncStart()方法只被一个地方调用，即{@link #start()},而{@link #start()}方法
+     * 本身只被一个地方调用，即{@link RtspClient},即主要是用于测试目的．
+     * 所以我们这里默认syncStart方法本身只是工作在udp模式下.(测试类本身不经过setup，而是直接开始拉流)
+     * <p>
      * Does the same thing as {@link #start()}, but in a synchronous manner.
      * Throws exceptions in addition to calling a callback.
      **/
     public void syncStart() throws CameraInUseException, ConfNotSupportedException,
             InvalidSurfaceException, IOException {
         Log.v(TAG, "Session --> sync start");
-        syncStart(1);
+        syncStart(1, RTP_OVER_UDP);
         // 如果我们不使用ShareBuffer的话,就传输AudioStream,否则不进行
         if (!SpydroidApplication.USE_SHARE_BUFFER_DATA) {
             Log.d(TAG, "start the AudioStream");
             try {
-                syncStart(0);
+                syncStart(0, RTP_OVER_UDP);
             } catch (final Exception e) {
                 Log.e(TAG, "RuntimeException happened while start audio stream, so stop the video stream either");
                 syncStop(1);
@@ -734,6 +745,7 @@ public class Session {
             @Override
             public void run() {
                 if (mCallback != null) {
+                    Log.d(TAG, "notify the callback that the session has been started");
                     mCallback.onSessionStarted();
                 }
             }

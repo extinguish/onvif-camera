@@ -30,8 +30,7 @@ import net.majorkernelpanic.streaming.rtcp.SenderReport;
 /**
  * Each packetizer inherits from this one and therefore uses RTP and UDP.
  */
-abstract public class AbstractPacketizer {
-
+public abstract class AbstractPacketizer {
     protected static final int rtphl = RtpSocket.RTP_HEADER_LENGTH;
 
     // Maximum size of RTP packets

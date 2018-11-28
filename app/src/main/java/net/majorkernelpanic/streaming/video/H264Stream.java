@@ -159,11 +159,6 @@ public class H264Stream extends VideoStream {
             mQuality.resX = 640;
             mQuality.resY = 480;
 
-            // TODO: 这里的sps和pps字段的准确值含义需要明确
-            // 如果不准确的话，会直接导致我们无法解析具体的数据帧
-//            final String sps = "J0IAFKaBQfE=";
-//            final String pps = "KM48gA==";
-
             Pair<String, String> spsNppsPair = EncoderDebugger.searchSPSandPPSForShareBuffer();
             final String sps, pps;
             if (spsNppsPair != null) {

@@ -32,6 +32,8 @@ import android.preference.PreferenceManager;
 import android.text.TextUtils;
 import android.util.Log;
 
+import net.majorkernelpanic.spydroid.Utilities;
+import net.majorkernelpanic.streaming.MediaStream;
 import net.majorkernelpanic.streaming.Session;
 import net.majorkernelpanic.streaming.SessionBuilder;
 
@@ -420,7 +422,7 @@ public class RtspServer extends Service {
         }
     }
 
-    private static final boolean HANDLE_K7_BUG = false;
+    private static final boolean HANDLE_K7_BUG = true;
 
     // One thread per client
     class WorkerThread extends Thread implements Runnable {
@@ -465,6 +467,7 @@ public class RtspServer extends Service {
                 // Do something accordingly like starting the streams, sending a session description
                 if (request != null) {
                     try {
+                        Log.v(TAG, "start to process the request");
                         // 处理客户端发起的请求
                         // 我们在processRequest方法之内会进行正式的处理工作　
                         // 例如打开视频流，视频流传输，视频流关闭等操作
@@ -484,7 +487,7 @@ public class RtspServer extends Service {
                         // 此时我们获取到的request为null
                         // TODO: request为null,可能是因为用户发送的是空请求,当然也有可能是其他的原因
                         // TODO: 这里需要进行更加深入的探讨
-                        // 此时我们直接忽略本次请求,等待下一个请求方法
+                        // 此时我们直接忽略本次请求,等待下一个请求方法比如我们在linux系统里面，通过远程桌面打开Windows的txt文件会出现乱码
                         // 我们不能直接通过当前是否正在streaming来判断是否忽略空请求
                         // 因为同时活跃的session不止一个
                         if (isStreaming()) {
@@ -528,6 +531,13 @@ public class RtspServer extends Service {
 
             Log.i(TAG, "Client disconnected");
         }
+
+        // 基于UDP的RTP
+        // 这也是默认的视频传输协议
+        // 以下的值也可以为"RTP/AVP",即将UDP省略掉，因为udp是默认的传输模式，所以不特殊指明的话，就是采用udp进行传输
+        private static final String RTP_UDP = "RTP/AVP/UDP";
+        // 基于TCP的RTP
+        private static final String RTP_TCP = "RTP/AVP/TCP";
 
         Response processRequest(Request request) throws IllegalStateException, IOException {
             Response response = new Response(request);
@@ -591,42 +601,96 @@ public class RtspServer extends Service {
 
                 p = Pattern.compile("client_port=(\\d+)-(\\d+)", Pattern.CASE_INSENSITIVE);
                 m = p.matcher(request.headers.get("transport"));
+                // 然后获取transport type,判断是通过tcp还是udp进行传输
+                String transportType = request.headers.get("transport");
+                Log.d(TAG, "the client player acquired transport type are " + transportType);
+                String rtpInnerTransferType = RTP_UDP;
 
-                if (!m.find()) {
-                    int[] ports = mSession.getTrack(trackId).getDestinationPorts();
-                    p1 = ports[0];
-                    p2 = ports[1];
-                } else {
-                    p1 = Integer.parseInt(m.group(1));
-                    p2 = Integer.parseInt(m.group(2));
+                try {
+                    String[] transportTypeInfoArr = transportType.split(";");
+                    rtpInnerTransferType = transportTypeInfoArr[0];
+                } catch (final Exception e) {
+                    Log.e(TAG, "Exception happened while we parse out the RTP inner transfer protocol, " +
+                            "and use the UDP transfer mode by default", e);
                 }
-
-                ssrc = mSession.getTrack(trackId).getSSRC();
-                src = mSession.getTrack(trackId).getLocalPorts();
                 destination = mSession.getDestination();
 
-                mSession.getTrack(trackId).setDestinationPorts(p1, p2);
+                if (rtpInnerTransferType.equals(RTP_TCP)) {
+                    Log.d(TAG, "transfer video data via tcp protocol");
+                    boolean streaming = isStreaming();
 
-                boolean streaming = isStreaming();
+                    // TODO: 使用tcp进行数据传输
+                    mSession.syncStart(trackId, MediaStream.RTP_OVER_TCP);
 
-                // 开始streaming操作
-                // 但是此时的streaming操作主要是为了用于RTP协议用于确定底层的视频传输操作具体是使用
-                // TCP还是UDP当做视频传输的轨道(RTP本身是位于传输层和RTSP协议之间)
-                // 具体可参考项目根目录当中的RTSP_n_RTP_simple_intro.md文档
-                mSession.syncStart(trackId);
-                if (!streaming && isStreaming()) {
-                    postMessage(MESSAGE_STREAMING_STARTED);
+                    if (!streaming && isStreaming()) {
+                        postMessage(MESSAGE_STREAMING_STARTED);
+                    }
+
+                    // tcp模式下的返回给客户端的setup响应信息
+                    // TODO: 构造信息,通过抓包确认合理的信息
+                    // 以下是openRTSP同live555-MediaServer进行交互时,openRTSP指定了-t选项,
+                    // 即强制通过tcp作为rtp数据传输通道时,接收到的来自live555-MediaServer的setup返回数据
+                    // RTSP/1.0 200 OK
+                    // CSeq: 4
+                    // Date: Wed, Nov 28 2018 09:54:18 GMT
+                    // Transport: RTP/AVP/TCP;unicast;destination=172.16.0.185;source=172.16.0.185;interleaved=0-1
+                    // Session: BD23BFAC;timeout=65
+                    response.attributes = "Transport: RTP/AVP/TCP;unicast" + // tcp只支持unicast模式,所以我们这里不需要判断用户是否提供的是组播地址
+                            ";destination=" + destination +
+                            ";source=" + Utilities.getLocalIpAddress() +
+                            ";interleaved=0-1" + "\r\n" +
+                            "Session: " + "1185d20035702ca" + "\r\n" +
+                            "timeout=65" + "\r\n";
+
+                } else {
+                    // 使用udp进行数据传输,udp也是我们默认的传输模式
+                    Log.d(TAG, "transfer video data via udp protocol");
+
+                    // 只有当用户要求使用udp来进行传输时，才会协商指定端口号
+                    // 对于tcp是不会的
+                    if (!m.find()) {
+                        int[] ports = mSession.getTrack(trackId).getDestinationPorts();
+                        p1 = ports[0];
+                        p2 = ports[1];
+                    } else {
+                        p1 = Integer.parseInt(m.group(1));
+                        p2 = Integer.parseInt(m.group(2));
+                    }
+
+                    ssrc = mSession.getTrack(trackId).getSSRC();
+                    src = mSession.getTrack(trackId).getLocalPorts();
+
+                    mSession.getTrack(trackId).setDestinationPorts(p1, p2);
+
+                    boolean streaming = isStreaming();
+
+                    // 开始streaming操作
+                    // 但是此时的streaming操作主要是为了用于RTP协议用于确定底层的视频传输操作具体是使用
+                    // TCP还是UDP当做视频传输的轨道(RTP本身是位于传输层和RTSP协议之间)
+                    // 具体可参考项目根目录当中的RTSP_n_RTP_simple_intro.md文档
+                    mSession.syncStart(trackId, MediaStream.RTP_OVER_UDP);
+
+                    if (!streaming && isStreaming()) {
+                        postMessage(MESSAGE_STREAMING_STARTED);
+                    }
+
+                    // 以下是openRTSP向live555-MediaServer请求数据(以默认模式-即UDP模式),对setup请求返回的数据
+                    // RTSP/1.0 200 OK
+                    // CSeq: 4
+                    // Date: Wed, Nov 28 2018 09:59:58 GMT
+                    // Transport: RTP/AVP;unicast;destination=172.16.0.185;source=172.16.0.185;client_port=33796-33797;server_port=6970-6971
+                    // Session: 0ECC4FAA;timeout=65
+                    // 除了关键数据外,可选字段可以添加也可以不添加(例如对于source字段，如果不添加的话，也是符合协议要求的)
+                    // udp模式下返回给客户端的setup响应消息
+                    response.attributes = "Transport: RTP/AVP/UDP;" + (InetAddress.getByName(destination).isMulticastAddress() ? "multicast" : "unicast") + // 当用户指定udp模式时，用户可能是基于组播来实现的
+                            ";destination=" + mSession.getDestination() +
+                            ";client_port=" + p1 + "-" + p2 +
+                            ";server_port=" + src[0] + "-" + src[1] +
+                            ";ssrc=" + Integer.toHexString(ssrc) +
+                            ";mode=play\r\n" +
+                            "Session: " + "1185d20035702ca" + "\r\n" +
+                            "Cache-Control: no-cache\r\n";
                 }
-
-                response.attributes = "Transport: RTP/AVP/UDP;" + (InetAddress.getByName(destination).isMulticastAddress() ? "multicast" : "unicast") +
-                        ";destination=" + mSession.getDestination() +
-                        ";client_port=" + p1 + "-" + p2 +
-                        ";server_port=" + src[0] + "-" + src[1] +
-                        ";ssrc=" + Integer.toHexString(ssrc) +
-                        ";mode=play\r\n" +
-                        "Session: " + "1185d20035702ca" + "\r\n" +
-                        "Cache-Control: no-cache\r\n";
-                response.status = Response.STATUS_OK;
 
                 // If no exception has been thrown, we reply with OK
                 response.status = Response.STATUS_OK;

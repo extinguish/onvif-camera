@@ -34,6 +34,7 @@ import net.majorkernelpanic.streaming.video.H264Stream;
 import net.majorkernelpanic.streaming.video.VideoQuality;
 import net.majorkernelpanic.streaming.video.VideoStream;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.hardware.Camera.CameraInfo;
 import android.preference.PreferenceManager;
@@ -96,6 +97,7 @@ public class SessionBuilder {
     }
 
     // The SessionManager implements the singleton pattern
+    @SuppressLint("StaticFieldLeak")
     private static volatile SessionBuilder sInstance = null;
 
     /**
@@ -356,6 +358,7 @@ public class SessionBuilder {
     /**
      * Returns a new {@link SessionBuilder} with the same configuration.
      */
+    @Override
     public SessionBuilder clone() {
         return new SessionBuilder()
                 .setDestination(mDestination)

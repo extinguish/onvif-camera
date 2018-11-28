@@ -66,8 +66,6 @@ public class RtpSocket implements Runnable {
 
     /**
      * This RTP socket implements a buffering mechanism relying on a FIFO of buffers and a Thread.
-     *
-     * @throws IOException
      */
     public RtpSocket() {
         mCacheSize = 00;
@@ -83,13 +81,13 @@ public class RtpSocket implements Runnable {
             mBuffers[i] = new byte[MTU];
             mPackets[i] = new DatagramPacket(mBuffers[i], 1);
 
-			/*							     Version(2)  Padding(0)					 					*/
-			/*									 ^		  ^			Extension(0)						*/
-			/*									 |		  |				^								*/
-			/*									 | --------				|								*/
-			/*									 | |---------------------								*/
-			/*									 | ||  -----------------------> Source Identifier(0)	*/
-			/*									 | ||  |												*/
+            /*							     Version(2)  Padding(0)					 					*/
+            /*									 ^		  ^			Extension(0)						*/
+            /*									 |		  |				^								*/
+            /*									 | --------				|								*/
+            /*									 | |---------------------								*/
+            /*									 | ||  -----------------------> Source Identifier(0)	*/
+            /*									 | ||  |												*/
             mBuffers[i][0] = (byte) Integer.parseInt("10000000", 2);
 
             /* Payload Type */
@@ -207,13 +205,14 @@ public class RtpSocket implements Runnable {
      * Puts the buffer back into the FIFO without sending the packet.
      */
     public void commitBuffer() throws IOException {
-
         if (mThread == null) {
             mThread = new Thread(this);
             mThread.start();
         }
 
-        if (++mBufferIn >= mBufferCount) mBufferIn = 0;
+        if (++mBufferIn >= mBufferCount) {
+            mBufferIn = 0;
+        }
         mBufferCommitted.release();
 
     }
@@ -227,14 +226,15 @@ public class RtpSocket implements Runnable {
 
         mAverageBitrate.push(length);
 
-        if (++mBufferIn >= mBufferCount) mBufferIn = 0;
+        if (++mBufferIn >= mBufferCount) {
+            mBufferIn = 0;
+        }
         mBufferCommitted.release();
 
         if (mThread == null) {
             mThread = new Thread(this);
             mThread.start();
         }
-
     }
 
     /**
