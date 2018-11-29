@@ -11,8 +11,8 @@
 #ifndef INCLUDE_LIBYUV_SCALE_ARGB_H_  // NOLINT
 #define INCLUDE_LIBYUV_SCALE_ARGB_H_
 
-#include "libyuv/basic_types.h"
-#include "libyuv/scale.h"  // For FilterMode
+#include "basic_types.h"
+#include "scale.h"  // For FilterMode
 
 #ifdef __cplusplus
 namespace libyuv {

@@ -11,8 +11,8 @@
 #ifndef INCLUDE_LIBYUV_SCALE_ROW_H_  // NOLINT
 #define INCLUDE_LIBYUV_SCALE_ROW_H_
 
-#include "libyuv/basic_types.h"
-#include "libyuv/scale.h"
+#include "basic_types.h"
+#include "scale.h"
 
 #ifdef __cplusplus
 namespace libyuv {

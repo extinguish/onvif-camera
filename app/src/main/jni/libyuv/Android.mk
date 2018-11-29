@@ -69,4 +69,3 @@ LOCAL_EXPORT_LDLIBS := -llog
 LOCAL_MODULE := libyuv
 
 include $(BUILD_SHARED_LIBRARY)
-#include $(BUILD_STATIC_LIBRARY)

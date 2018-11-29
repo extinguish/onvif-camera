@@ -11,11 +11,11 @@
 #ifndef INCLUDE_LIBYUV_PLANAR_FUNCTIONS_H_  // NOLINT
 #define INCLUDE_LIBYUV_PLANAR_FUNCTIONS_H_
 
-#include "libyuv/basic_types.h"
+#include "basic_types.h"
 
 // TODO(fbarchard): Remove the following headers includes.
-#include "libyuv/convert.h"
-#include "libyuv/convert_argb.h"
+#include "convert.h"
+#include "convert_argb.h"
 
 #ifdef __cplusplus
 namespace libyuv {

@@ -11,8 +11,8 @@
 #ifndef INCLUDE_LIBYUV_ROTATE_ARGB_H_  // NOLINT
 #define INCLUDE_LIBYUV_ROTATE_ARGB_H_
 
-#include "libyuv/basic_types.h"
-#include "libyuv/rotate.h"  // For RotationMode.
+#include "basic_types.h"
+#include "rotate.h"  // For RotationMode.
 
 #ifdef __cplusplus
 namespace libyuv {

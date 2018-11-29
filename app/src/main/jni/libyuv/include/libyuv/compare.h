@@ -11,7 +11,7 @@
 #ifndef INCLUDE_LIBYUV_COMPARE_H_  // NOLINT
 #define INCLUDE_LIBYUV_COMPARE_H_
 
-#include "libyuv/basic_types.h"
+#include "basic_types.h"
 
 #ifdef __cplusplus
 namespace libyuv {

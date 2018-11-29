@@ -11,8 +11,8 @@
 #ifndef INCLUDE_LIBYUV_CONVERT_FROM_H_  // NOLINT
 #define INCLUDE_LIBYUV_CONVERT_FROM_H_
 
-#include "libyuv/basic_types.h"
-#include "libyuv/rotate.h"
+#include "basic_types.h"
+#include "rotate.h"
 
 #ifdef __cplusplus
 namespace libyuv {
