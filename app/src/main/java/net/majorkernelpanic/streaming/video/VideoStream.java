@@ -387,6 +387,7 @@ public abstract class VideoStream extends MediaStream {
     /**
      * Video encoding is done by a MediaRecorder.
      */
+    @Override
     protected void encodeWithMediaRecorder() throws IOException {
         Log.d(TAG, "Video encoded using the MediaRecorder API");
 
@@ -615,12 +616,28 @@ public abstract class VideoStream extends MediaStream {
 
             // 发送消息，开始读取ShareBuffer当中的数据
             mFrontCameraReadingHandler.sendEmptyMessage(MSG_READ_FRONT_STREAM_DATA);
+            // TODO: 此时设置Packet当中使用的RtpSocket的传输通道
+            // TODO: 此时才是真的开始传输视频数据流
+            // TODO: 我们在这里替换成我们自己的实现
+            if (mStreamDataTransferChannel == RTP_OVER_TCP) {
+                // 此时是采用tcp进行传输
+                Log.d(TAG, "transfer data with tcp protocol channel");
+                // TODO: tcp直接将原始数据按照流的方式进行传输
+                // TODO: 从MediaCodecInputStream当中读取出数据
 
-            // 利用Packetizer将MediaCodec当中读取编码好的数据进行封装,封装成
-            // RTP数据包,然后通过RTP进行发送
-            mPacketizer.setDestination(mDestination, mRtpPort, mRtcpPort);
-            mPacketizer.setInputStream(new MediaCodecInputStream(mMediaCodec));
-            mPacketizer.start();
+
+
+
+
+            } else {
+                Log.d(TAG, "transfer data with udp protocol channel");
+                // 此时是udp传输
+                // 利用Packetizer将MediaCodec当中读取编码好的数据进行封装,封装成
+                // RTP数据包,然后通过RTP进行发送
+                mPacketizer.setDestination(mDestination, mRtpPort, mRtcpPort);
+                mPacketizer.setInputStream(new MediaCodecInputStream(mMediaCodec));
+                mPacketizer.start();
+            }
 
             mStreaming = true;
         }

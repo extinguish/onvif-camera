@@ -1,16 +1,18 @@
 ROOT_PATH := $(call my-dir)
 YUV_PATH := $(call my-dir)
+LIVE_SERVER_PATH := $(call my-dir)
 
 $(info "the yuv path are :" $(YUV_PATH))
 
 include $(YUV_PATH)/libyuv/Android.mk
 
+include $(LIVE_SERVER_PATH)/live_server/Android.mk
+
 ##################################################
-include $(CLEAR_VARS) # CLEAR_VARS will not clear LOCAL_PATH, but other variables will be cleared. but other module may define the LOCAL_PATH again
+# CLEAR_VARS will not clear LOCAL_PATH, but other variables will be cleared. but other module may define the LOCAL_PATH again
+include $(CLEAR_VARS)
 
 $(info "current local path are :" $(ROOT_PATH))
-
-include $(CLEAR_VARS)
 
 # curious here, that we must specify the detailed path of the color_converter.c file
 LOCAL_SRC_FILES := $(ROOT_PATH)/color_converter.cc \

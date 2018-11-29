@@ -37,6 +37,7 @@ import java.nio.ByteBuffer;
  * An InputStream that uses data from a MediaCodec.
  * The purpose of this class is to interface existing RTP packetizers of
  * libstreaming with the new MediaCodec API. This class is not thread safe !
+ * (从这里的注释也可以看出来，libstreaming这个库从设计初始就是要按照)
  * <p>
  * 从{@link MediaCodec}当中读取数据出来.
  */
@@ -123,6 +124,4 @@ public class MediaCodecInputStream extends InputStream {
     public BufferInfo getLastBufferInfo() {
         return mBufferInfo;
     }
-
-
 }

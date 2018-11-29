@@ -95,8 +95,9 @@ public abstract class MediaStream implements Stream {
     /**
      * RTP层当中视频流的传输通道
      * 目前RTP层当中视频流的传输有两种方式，TCP和UDP.
+     * 如果用户不指定该值的话，默认就采用udp的方式进行传输.
      */
-    private int mStreamDataTransferChannel;
+    protected int mStreamDataTransferChannel;
 
     static {
         // We determine whether or not the MediaCodec API should be used
@@ -239,7 +240,9 @@ public abstract class MediaStream implements Stream {
      */
     @Override
     public synchronized void configure() throws IllegalStateException, IOException {
-        if (mStreaming) throw new IllegalStateException("Can't be called while streaming.");
+        if (mStreaming) {
+            throw new IllegalStateException("Can't be called while streaming.");
+        }
         mMode = mRequestedMode;
         mConfigured = true;
     }

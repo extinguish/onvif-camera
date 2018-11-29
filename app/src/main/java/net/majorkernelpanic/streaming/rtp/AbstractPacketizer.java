@@ -29,6 +29,14 @@ import net.majorkernelpanic.streaming.rtcp.SenderReport;
 
 /**
  * Each packetizer inherits from this one and therefore uses RTP and UDP.
+ * <p>
+ * 从{@link AbstractPacketizer}的实现来看，{@link AbstractPacketizer}从最初的
+ * 设计开始就从来没有打算使用TCP来最为底层的传输通道.
+ * 参考{@link #AbstractPacketizer()}当中注释信息.
+ * 如果我们要为rtp添加tcp传输通道，不能在{@link AbstractPacketizer}当中进行，
+ * 而是需要在{@link AbstractPacketizer}的上一层进行，即{@link net.majorkernelpanic.streaming.MediaStream}
+ * 当中进行，也就是说在多媒体数据流分包之前进行，毕竟只有udp才需要分包，tcp是不需要分包的.
+ * tcp只需要从流进行操作.
  */
 public abstract class AbstractPacketizer {
     protected static final int rtphl = RtpSocket.RTP_HEADER_LENGTH;
@@ -45,6 +53,12 @@ public abstract class AbstractPacketizer {
     public AbstractPacketizer() {
         int ssrc = new Random().nextInt();
         ts = new Random().nextInt();
+        // 这里的设计有问题，理论上，我们只有在用户发起了setup请求之后，
+        // 我们才能知道用于最终是想通过tcp还是udp来作为rtp的传输通道
+        // 但是这里再创建AbstractPacketizer时，就直接默认采用RtpSocket了(即默认采用udp作为传输通道了).
+        // 但是还有另外一种可能，那就是AbstractPacketizer从最开始的设计理念就是打算采用
+        // udp来进行传输，而不是tcp来进行传输
+        // 毕竟只有udp才需要分包，tcp是不需要分包，直接按流来进行传输
         socket = new RtpSocket();
         socket.setSSRC(ssrc);
     }

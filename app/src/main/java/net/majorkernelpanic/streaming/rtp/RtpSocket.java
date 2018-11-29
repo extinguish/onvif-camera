@@ -37,6 +37,9 @@ import android.util.Log;
  * It implements a buffering mechanism, relying on a FIFO of buffers and a Thread.
  * That way, if a packetizer tries to send many packets too quickly, the FIFO will
  * grow and packets will be sent one by one smoothly.
+ * <p>
+ * RtpSocket内部是使用UDP来进行数据传输的.
+ * 如果我们使用TCP作为底层通道的话，需要采用另外一种通信方式.
  */
 public class RtpSocket implements Runnable {
 
@@ -171,9 +174,12 @@ public class RtpSocket implements Runnable {
     public void setDestination(InetAddress dest, int dport, int rtcpPort) {
         mPort = dport;
         for (int i = 0; i < mBufferCount; i++) {
+            // 设置每一个udp包的目的地址和目的端口
             mPackets[i].setPort(dport);
             mPackets[i].setAddress(dest);
         }
+        // 设置rtcp包的目的地址和目的端口
+        // rtcp包和rtp包是分开传输的
         mReport.setDestination(dest, rtcpPort);
     }
 
