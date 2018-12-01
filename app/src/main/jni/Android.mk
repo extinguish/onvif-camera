@@ -2,6 +2,7 @@ ROOT_PATH := $(call my-dir)
 YUV_PATH := $(call my-dir)
 H264_HANDLE_PATH := $(call my-dir)
 LIVE_SERVER_PATH := $(call my-dir)
+SHARE_BUF_RTSP_SERVER := $(call my-dir)
 
 $(info "the yuv path are :" $(YUV_PATH))
 
@@ -12,6 +13,10 @@ include $(H264_HANDLE_PATH)/h264_handle/Android.mk
 
 $(info "the live_server path are " $(LIVE_SERVER_PATH))
 include $(LIVE_SERVER_PATH)/live_server/Android.mk
+
+$(info "the share buffer rtsp server path are " $(SHARE_BUF_RTSP_SERVER))
+include $(SHARE_BUF_RTSP_SERVER)/share_buffer_rtsp_server/Android.mk
+
 
 ##################################################
 # CLEAR_VARS will not clear LOCAL_PATH, but other variables will be cleared.
@@ -31,6 +36,10 @@ LOCAL_MODULE := color_converter
 
 LOCAL_SHARED_LIBRARIES := libyuv
 
+# mediandk库本身需要在Android-21以上的版本当中运行,因此我们需要确保编译时，Application.mk
+# 当中的api >= 21
 LOCAL_LDLIBS := -lmediandk -llog -ljnigraphics -landroid
 
 include $(BUILD_SHARED_LIBRARY)
+
+

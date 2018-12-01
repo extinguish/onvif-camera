@@ -6,7 +6,7 @@ android {
 
     defaultConfig {
         applicationId "com.adasplus.ipcamera"
-        minSdkVersion 14
+        minSdkVersion 21
         targetSdkVersion 21
 
         externalNativeBuild {

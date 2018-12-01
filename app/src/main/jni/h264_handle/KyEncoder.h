@@ -9,6 +9,8 @@
 
 #include <stdint.h>
 #include <pthread.h>
+// media//NdkMediaCodec.h本身是在Android-21之后的系统版本当中才引入，因此Application.mk
+// 当中指定api>=21才可以
 #include <media/NdkMediaCodec.h>
 #include <media/NdkMediaError.h>
 #include <media/NdkMediaFormat.h>

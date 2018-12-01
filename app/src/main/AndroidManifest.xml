@@ -6,7 +6,7 @@
     android:versionName="10">
 
     <!--以下只是为了ndk-build使用-->
-    <!--<uses-sdk android:minSdkVersion="16" />-->
+    <!--<uses-sdk android:minSdkVersion="21" />-->
 
     <uses-feature android:name="android.hardware.camera" />
     <uses-feature android:name="android.hardware.camera.autofocus" />
@@ -55,8 +55,13 @@
 
         <!--ONVIF Http Server-->
         <service android:name="net.majorkernelpanic.onvif.network.ONVIFHttpServer" />
-        <service android:name=".IPCameraService"
-            android:exported="true"/>
+        <service
+            android:name=".IPCameraService"
+            android:exported="true" />
+
+        <service
+            android:name="com.adasplus.ipcamera.ShareBufferReadService"
+            android:exported="true" />
 
     </application>
 

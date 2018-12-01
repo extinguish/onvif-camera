@@ -3,7 +3,6 @@
 #include "AdasUtil.h"
 #include <stdio.h>
 #include <fcntl.h>
-//#include "../librtmp/rtmp.h"
 
 #define TAG_H "rtmp_service"
 
@@ -18,9 +17,11 @@ void *H264DataListenerImpl::send(void *data_callback) {
     H264DataListenerImpl *data_listener = reinterpret_cast<H264DataListenerImpl *>(data_callback);
     data_listener->send_video_frame();
     pthread_exit(NULL);
-    return NULL;
 }
 
+/*
+ * 将数据帧发送出去
+ */
 void *H264DataListenerImpl::send_video_frame() {
     encoding = true;
     LOGD_T(TAG_H, "start send out the video frame %d", encoding);
@@ -64,11 +65,9 @@ BYTE *pps = nullptr;
 const uint8_t pps_len = 4;
 uint8_t sps_len = 0;
 
-int test_fd = -1;
-
 /**
- * 进行数据的传输
- * 我们需要识别出数据当中的pps和sps，以及视频帧,然后进行传输
+ * 我们需要识别出数据当中的pps和sps，以及普通视频帧,
+ * 然后将这些数据帧传递给rtsp_server
  *
  * @param data h264 data
  * @param flags 2:encode flag, 9:keyframe, 8:normal frame
@@ -82,18 +81,7 @@ H264DataListenerImpl::onVideoFrame(uint8_t *data, uint32_t flags, int32_t offset
         LOGD_T(TAG_H, "cannot the get the rtmp handle address");
         return;
     }
-
-    // 对于ffplay,可以识别出我们的播放端采用的是相对时间戳还是绝对时间戳
-    // 但是对于video.js,采用相对时间戳时，需要video.js首先开始拉流，然后才是客户端推流
-    // 否则会出现"卡帧"的现象(具体的内部原因需要看分析源码).因此这里修改成绝对时间戳
     int64_t timestamp_t = AdasUtil::currentTimeMillis() / 1000;
-
-//    this->rtmpHandle = reinterpret_cast<RtmpHandle *>(this->rtmpHandleAddress);
-//
-//    if (this->rtmpHandle == nullptr) {
-//        LOGD_T(TAG_H, "the rtmp handle are null, cannot send the h264 frame");
-//        return;
-//    }
 
     LOGD_T(TAG_H, "current frame flags %d, all data size %d", flags, size);
 
@@ -144,28 +132,15 @@ H264DataListenerImpl::onVideoFrame(uint8_t *data, uint32_t flags, int32_t offset
 }
 
 
-
-long H264DataListenerImpl::getRtmpHandleAddress() {
-    return this->rtmpHandleAddress;
-}
-
 H264DataListenerImpl::~H264DataListenerImpl() {
     LOGD_T(TAG_H, "delete the H264 data listener callback instance ");
-//    if (this->rtmpHandle != nullptr) {
-//        delete rtmpHandle;
-//        rtmpHandle = nullptr;
-//    }
     rtmpHandleAddress = -1;
     if (this->mKyEncoderControllerCallback != nullptr) {
-//        delete mKyEncoderControllerCallback;
         mKyEncoderControllerCallback = nullptr;
     }
     mKyEncoderControlCallbackAddress = -1;
 }
 
-//RtmpHandle *H264DataListenerImpl::getRtmpHandle() {
-//    return this->rtmpHandle;
-//}
 
 void H264DataListenerImpl::stop() {
     LOGD_T(TAG_H, "stop the h264 data sender, encoding ? %d", encoding);
@@ -185,11 +160,6 @@ void H264DataListenerImpl::stop() {
             this->mKyEncoderControllerCallback->stopEncoding();
         }
     }
-    // 停止rtmpHandle
-//    if (rtmpHandle != nullptr) {
-//        delete rtmpHandle;
-//        rtmpHandle = nullptr;
-//    }
     rtmpHandleAddress = -1;
 }
 

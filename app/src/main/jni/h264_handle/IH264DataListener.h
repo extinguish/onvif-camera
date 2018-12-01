@@ -6,8 +6,7 @@
 #define NETWORKSERVICE_IH264DATALISTENER_H
 
 #include <stdio.h>
-#include "../simple_common.h"
-// #include "../rtmp_handle.h"
+#include "../simple_utils.h"
 #include "Mutex.h"
 #include "ThreadQueue.hpp"
 #include "IKyEncoderControllerCallback.h"
@@ -73,21 +72,11 @@ public:
     virtual void
     onVideoFrame(uint8_t *data, uint32_t flags, int32_t offset, int32_t size, int64_t time_stamp);
 
-//    virtual void setRtmpHandle(RtmpHandle *rtmpHandle);
-//
-//    virtual void storeRtmpHandle(RtmpHandle *rtmpHandle);
-
-    virtual long getRtmpHandleAddress();
-
     virtual void storeKyEncoderCallback(IKyEncoderControllerCallback *callback);
-
-//    virtual RtmpHandle *getRtmpHandle();
 
     ~H264DataListenerImpl();
 
 private:
-    // H264DataListenerImpl内部需要直接同RtmpHandle进行交互,用于完成数据的传输
-//    RtmpHandle *rtmpHandle;
     long rtmpHandleAddress;
 
     long mKyEncoderControlCallbackAddress;

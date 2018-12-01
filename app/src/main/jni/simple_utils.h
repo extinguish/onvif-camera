@@ -10,7 +10,7 @@
 // 然后CMake和Android.mk本身由build.gradle来控制，最终由gradle product flavor完成自动化控制
 #define ENABLE_DEBUG FALSE
 
-#define DEFAULT_TAG "rtmp_service"
+#define DEFAULT_TAG "simple_rtsp_server"
 
 #define LOGD(fmt, ...) \
         if(ENABLE_DEBUG) (void)__android_log_print(ANDROID_LOG_DEBUG, DEFAULT_TAG, fmt, ##__VA_ARGS__)

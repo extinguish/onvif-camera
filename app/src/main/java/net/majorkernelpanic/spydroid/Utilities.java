@@ -345,7 +345,7 @@ public class Utilities {
      * 但是在API-27当中，MemoryFile已经修改成通过{@link java.nio.ByteBuffer}来同
      * Direct Memory来进行交互.
      */
-    static MemoryFile getMemoryFile(FileDescriptor descriptor, int length) {
+    public static MemoryFile getMemoryFile(FileDescriptor descriptor, int length) {
         try {
             MemoryFile memoryFile = new MemoryFile("adas_stream", 1);
             memoryFile.close();

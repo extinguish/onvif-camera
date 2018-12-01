@@ -35,6 +35,7 @@ import android.os.RemoteException;
 import android.preference.PreferenceManager;
 import android.util.Log;
 
+import com.adasplus.ipcamera.ShareBufferReadService;
 import com.adasplus.kylauncher.IAdasResultListener;
 
 import net.majorkernelpanic.onvif.DeviceBackBean;
@@ -63,14 +64,19 @@ public class SpydroidApplication extends android.app.Application {
 
     public final static String TAG = "SpydroidApplication";
 
+    static {
+        System.loadLibrary("simple_rtsp_server");
+    }
+
     /**
      * 是否是使用系统当中的ShareBuffer数据.
      * 默认使用的是系统当中的Camera的数据.
      *
      * FIXME: guoshichao 目前这里的实现不太好,是通过一个单独的全局变量来控制. 正常的好的实现,应该是通过两种单独的状态来进行控制.
      */
-    public static boolean USE_SHARE_BUFFER_DATA = false;
+    public static final boolean USE_SHARE_BUFFER_DATA = false;
 
+    private static final boolean USE_NATIVE_RTSP_SERVER = true;
     /**
      * Default quality of video streams.
      */
@@ -115,16 +121,24 @@ public class SpydroidApplication extends android.app.Application {
 
         super.onCreate();
 
-        bindAdasServiceIntent = new Intent();
-        bindAdasServiceIntent.setAction("com.adasplus.dfw");
-        bindAdasServiceIntent.setPackage("com.adasplus.kylauncher");
+        if (USE_SHARE_BUFFER_DATA) {
+            bindAdasServiceIntent = new Intent();
+            bindAdasServiceIntent.setAction("com.adasplus.dfw");
+            bindAdasServiceIntent.setPackage("com.adasplus.kylauncher");
 
-        bindRemoteAdasService(new BindRemoteAdasServiceResultListener() {
-            @Override
-            public void onGetCameraFileResult(boolean success) {
-                Log.d(TAG, "get system share buffer memory file descriptor --> " + success);
-            }
-        });
+            bindRemoteAdasService(new BindRemoteAdasServiceResultListener() {
+                @Override
+                public void onGetCameraFileResult(boolean success) {
+                    Log.d(TAG, "get system share buffer memory file descriptor --> " + success);
+                }
+            });
+        }
+
+        if (USE_NATIVE_RTSP_SERVER) {
+            // 读取ShareBuffer当中的yuv数据进行编码.
+            Intent shareBufferReadServiceIntent = new Intent(this, ShareBufferReadService.class);
+            startService(shareBufferReadServiceIntent);
+        }
 
         SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
 
@@ -293,9 +307,5 @@ public class SpydroidApplication extends android.app.Application {
 
     public MemoryFile getFrontCameraMemFile() {
         return frontCameraMemFile;
-    }
-
-    public MemoryFile getBackCameraMemFile() {
-        return backCameraMemFile;
     }
 }
