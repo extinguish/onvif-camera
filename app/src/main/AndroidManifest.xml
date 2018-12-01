@@ -6,6 +6,13 @@
     android:versionName="10">
 
     <!--以下只是为了ndk-build使用-->
+    <!--如果我们不加以下这句话时，根据ndk-build的版本不同，出现的问题不一样，对于旧版本的ndk-build,如果不加以下这句话，
+        就直接编译错误了，
+        对于新版本的ndk-build,就会报以下的警告信息:
+        Android NDK: WARNING: APP_PLATFORM android-21 is higher than android:minSdkVersion 1 in
+        /media/guoshichao/04167E5E167E50A2/a_simple_coll/android_onvif_example/spydroid-ipcamera/app/src/main/AndroidManifest.xml.
+        NDK binaries will *not* be compatible with devices older than android-21. See
+        https://android.googlesource.com/platform/ndk/+/master/docs/user/common_problems.md for more information.-->
     <!--<uses-sdk android:minSdkVersion="21" />-->
 
     <uses-feature android:name="android.hardware.camera" />

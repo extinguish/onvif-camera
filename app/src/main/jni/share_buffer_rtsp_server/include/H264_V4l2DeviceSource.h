@@ -25,14 +25,12 @@ const char H264shortmarker[] = {0, 0, 1};
 class H26X_V4L2DeviceSource : public V4L2DeviceSource {
 protected:
     H26X_V4L2DeviceSource(UsageEnvironment &env,
-                          int outputFd,
                           unsigned int queueSize,
                           bool useThread,
-                          bool repeatConfig,
-                          bool keepMarker)
-            : V4L2DeviceSource(env, outputFd, queueSize, useThread),
+                          bool repeatConfig)
+            : V4L2DeviceSource(env, queueSize, useThread),
               m_repeatConfig(repeatConfig),
-              m_keepMarker(keepMarker), m_frameType(0) {}
+              m_frameType(0) {}
 
     virtual ~H26X_V4L2DeviceSource() {}
 
@@ -42,7 +40,6 @@ protected:
     std::string m_sps;
     std::string m_pps;
     bool m_repeatConfig;
-    bool m_keepMarker;
     int m_frameType;
 };
 
@@ -50,19 +47,17 @@ class H264_V4L2DeviceSource : public H26X_V4L2DeviceSource {
 public:
     static H264_V4L2DeviceSource *
     createNew(UsageEnvironment &env,
-              int outputFd, unsigned int queueSize, bool useThread,
-              bool repeatConfig, bool keepMarker) {
-        return new H264_V4L2DeviceSource(env, outputFd, queueSize,
-                                         useThread, repeatConfig, keepMarker);
+              unsigned int queueSize, bool useThread,
+              bool repeatConfig) {
+        return new H264_V4L2DeviceSource(env, queueSize,
+                                         useThread, repeatConfig);
     }
 
 protected:
-    H264_V4L2DeviceSource(UsageEnvironment &env, int outputFd,
+    H264_V4L2DeviceSource(UsageEnvironment &env,
                           unsigned int queueSize,
-                          bool useThread, bool repeatConfig,
-                          bool keepMarker)
-            : H26X_V4L2DeviceSource(env, outputFd, queueSize, useThread, repeatConfig,
-                                    keepMarker) {}
+                          bool useThread, bool repeatConfig)
+            : H26X_V4L2DeviceSource(env, queueSize, useThread, repeatConfig) {}
 
     // override V4L2DeviceSource
     virtual std::list<std::pair<unsigned char *, size_t> >

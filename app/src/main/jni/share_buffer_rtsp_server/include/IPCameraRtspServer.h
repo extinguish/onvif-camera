@@ -25,54 +25,53 @@
 
 
 // project
-
-//#include "V4l2Device.h"
-//#include "V4l2Capture.h"
-//#include "V4l2Output.h"
-
 #include "H264_V4l2DeviceSource.h"
 #include "ServerMediaSubsession.h"
-//#include "UnicastServerMediaSubsession.h"
-//#include "MulticastServerMediaSubsession.h"
-//#include "SegmentServerMediaSubsession.h"
+#include "UnicastServerMediaSubsession.h"
 #include "HTTPServer.h"
 
 
 #define LOG_TAG "ipcamera_rtsp_server"
 
-#define v4l2_fourcc(a, b, c, d)\
-    ((__u32)(a) | ((__u32)(b) << 8) | ((__u32)(c) << 16) | ((__u32)(d) << 24))
-
 class IPCameraRtspServer {
 
 public:
-    static IPCameraRtspServer *createNew();
+    IPCameraRtspServer(const unsigned short rtspPort = 8554,
+                       const unsigned short rtspOverHttpPort = 0,
+                       const int timeOut = 65,
+                       const unsigned int hslSegment = 5);
 
-    std::string getVideoRtpFormat(int format, bool muxTS);
+    ~IPCameraRtspServer();
 
     // -----------------------------------------
     // add an RTSP session
     // -----------------------------------------
     int
-    addSession(const std::string &sessionName, const std::list<ServerMediaSubsession *> &subSession);
+    addSession(const std::string &sessionName,
+               const std::list<ServerMediaSubsession *> &subSession);
 
     FramedSource *
-    createFramedSource(int format, int outFd, int queueSize, bool useThread, bool repeatConfig,
-                       MPEG2TransportStreamFromESSource *muxer);
+    createFramedSource(int queueSize, bool useThread, bool repeatConfig);
 
-    RTSPServer *createRtspServer(unsigned short rtspPort, unsigned short rtspOverHttpPort,
-                                 int timeout, unsigned int hslSegment);
-
+    RTSPServer *createRtspServer();
 
     // 开启服务
     void startServer();
 
 private:
-    IPCameraRtspServer(RTSPServer *rtspServer);
+    TaskScheduler *scheduler;
 
     RTSPServer *rtspServer;
 
     UsageEnvironment *env;
+
+    // 对于AdasIPCamera,我们从ShareBuffer当中读取出视频数据之后，直接就编码成h264格式，这是固定的
+    const std::string rtpFormat = "video/H264";
+
+    const unsigned short rtspPort;
+    const unsigned short rtspOverHttpPort;
+    const unsigned int timeOut;
+    const unsigned int hslSegment;
 
 };
 

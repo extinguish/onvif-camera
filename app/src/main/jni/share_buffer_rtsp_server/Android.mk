@@ -11,6 +11,7 @@ LOCAL_SRC_FILES := $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/HTTPServer.cpp \
                    $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/H264_V4l2DeviceSource.cpp \
                    $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/ServerMediaSubsession.cpp \
                    $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/IPCameraRtspServer.cpp \
+                   $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/UnicastServerMediaSubsession.cpp \
 
 LOCAL_C_INCLUDES := $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/../live_server/UsageEnvironment/include \
                     $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/../live_server/BasicUsageEnvironment/include \

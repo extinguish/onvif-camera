@@ -18,6 +18,7 @@
 
 #define LOG_TAG "device_source"
 
+// 用于统计推流过程当中的实时信息
 // ---------------------------------
 // V4L2 FramedSource Stats
 // ---------------------------------
@@ -25,7 +26,6 @@ int V4L2DeviceSource::Stats::notify(int tv_sec, int framesize) {
     m_fps++;
     m_size += framesize;
     if (tv_sec != m_fps_sec) {
-
         LOGD_T(LOG_TAG, "tv_sec : %d, fps %d, band width %d kbps", tv_sec, m_fps, (m_size / 128));
         m_fps_sec = tv_sec;
         m_fps = 0;
@@ -38,21 +38,20 @@ int V4L2DeviceSource::Stats::notify(int tv_sec, int framesize) {
 // V4L2 FramedSource
 // ---------------------------------
 V4L2DeviceSource *
-V4L2DeviceSource::createNew(UsageEnvironment &env, int outputFd, unsigned int queueSize,
+V4L2DeviceSource::createNew(UsageEnvironment &env, unsigned int queueSize,
                             bool useThread) {
     V4L2DeviceSource *source = NULL;
-    source = new V4L2DeviceSource(env, outputFd, queueSize, useThread);
+    source = new V4L2DeviceSource(env, queueSize, useThread);
     return source;
 }
 
 // Constructor
-V4L2DeviceSource::V4L2DeviceSource(UsageEnvironment &env, int outputFd,
+V4L2DeviceSource::V4L2DeviceSource(UsageEnvironment &env,
                                    unsigned int queueSize,
                                    bool useThread)
         : FramedSource(env),
           m_in("in"),
           m_out("out"),
-          m_outfd(outputFd),
           m_queueSize(queueSize) {
     m_eventTriggerId = envir().taskScheduler().createEventTrigger(
             V4L2DeviceSource::deliverFrameStub);
@@ -96,9 +95,11 @@ void *V4L2DeviceSource::thread() {
 
     LOGD_T(LOG_TAG, "begin thread");
     while (!stop) {
+        // 以下的fd是我们的视频流来源的文件描述符
         // FIXME: guoshichao: 稍后解开注释，进行修复
 //        int fd = m_device->getFd();
-        int fd = m_outfd; // FIXME: guoshichao: 这是临时为了编译进行的修改，原始的实现是int fd = m_device_getFd();
+        int fd = -1; // FIXME: guoshichao: 这是临时为了编译进行的修改，原始的实现是int fd = m_device_getFd();
+
         FD_SET(fd, &fdset);
         tv.tv_sec = 1;
         tv.tv_usec = 0;
@@ -215,9 +216,6 @@ int V4L2DeviceSource::getNextFrame() {
         m_in.notify(tv.tv_sec, frameSize);
         LOGD_T(LOG_TAG, "getNextFrame\ttimestamp: %ld.%ld \tsize: %d", ref.tv_sec, ref.tv_usec, frameSize);
         processFrame(buffer, frameSize, ref);
-        if (m_outfd != -1) {
-            write(m_outfd, buffer, frameSize);
-        }
     }
     return frameSize;
 }
@@ -240,8 +238,9 @@ void V4L2DeviceSource::processFrame(char *frame, int frameSize, const timeval &r
         memcpy(buf, frame.first, size);
         queueFrame(buf, size, ref);
 
+        int diffTime = diff.tv_sec * 1000 + diff.tv_usec / 1000;
         LOGD_T(LOG_TAG, "queueFrame with timestamp of %ld.%ld, size of %d, diff %d ms",
-               ref.tv_sec, ref.tv_usec, size, (diff.tv_sec * 1000 + diff.tv_usec / 1000));
+               ref.tv_sec, ref.tv_usec, size, diffTime);
         frameList.pop_front();
     }
 }

@@ -117,13 +117,8 @@ unsigned char *H26X_V4L2DeviceSource::extractFrame(unsigned char *frame, size_t 
                                                 sizeof(H264shortmarker));
         }
 
-        if (m_keepMarker) {
-            size -= startFrame - frame;
-            outFrame = startFrame;
-        } else {
-            size -= startFrame - frame + markerlength;
-            outFrame = &startFrame[markerlength];
-        }
+        size -= startFrame - frame + markerlength;
+        outFrame = &startFrame[markerlength];
 
         if (endFrame != NULL) {
             outsize = endFrame - outFrame;

@@ -45,10 +45,6 @@ BaseServerMediaSubsession::createSource(UsageEnvironment &env, FramedSource *vid
         source = H265VideoStreamDiscreteFramer::createNew(env, videoES);
     }
 #endif
-// guoshichao 我们这里不处理video/JPEG格式的视频
-//    else if (format == "video/JPEG") {
-//        source = MJPEGVideoSource::createNew(env, videoES);
-//    }
     else {
         source = videoES;
     }
@@ -58,12 +54,14 @@ BaseServerMediaSubsession::createSource(UsageEnvironment &env, FramedSource *vid
 /// 根据live555的版本不同，处理的能力也不同
 /// 当前我们正在使用的live555的版本是1539734400
 RTPSink *BaseServerMediaSubsession::createSink(UsageEnvironment &env, Groupsock *rtpGroupsock,
-                                               unsigned char rtpPayloadTypeIfDynamic, const std::string &format,
+                                               unsigned char rtpPayloadTypeIfDynamic,
+                                               const std::string &format,
                                                V4L2DeviceSource *source) {
     // TODO: guoshichao 理论上，我们需要的只是h264视频格式的处理，剩下的不需要处理
     RTPSink *videoSink = NULL;
     if (format == "video/MP2T") {
-        videoSink = SimpleRTPSink::createNew(env, rtpGroupsock, rtpPayloadTypeIfDynamic, 90000, "video", "MP2T", 1,
+        videoSink = SimpleRTPSink::createNew(env, rtpGroupsock, rtpPayloadTypeIfDynamic, 90000,
+                                             "video", "MP2T", 1,
                                              True, False);
     } else if (format == "video/H264") {
         videoSink = H264VideoRTPSink::createNew(env, rtpGroupsock, rtpPayloadTypeIfDynamic);
@@ -98,7 +96,8 @@ RTPSink *BaseServerMediaSubsession::createSink(UsageEnvironment &env, Groupsock 
 //        int videoHeight = source->getHeight();
         int videoWidth = 320;
         int videoHeight = 480;
-        videoSink = RawVideoRTPSink::createNew(env, rtpGroupsock, rtpPayloadTypeIfDynamic, videoHeight,
+        videoSink = RawVideoRTPSink::createNew(env, rtpGroupsock, rtpPayloadTypeIfDynamic,
+                                               videoHeight,
                                                videoWidth, 8, sampling.c_str());
 
 
@@ -116,13 +115,15 @@ RTPSink *BaseServerMediaSubsession::createSink(UsageEnvironment &env, Groupsock 
         getline(is, sampleRate, '/');
         std::string channels("2");
         getline(is, channels);
-        videoSink = SimpleRTPSink::createNew(env, rtpGroupsock, rtpPayloadTypeIfDynamic, std::stoi(sampleRate), "audio",
+        videoSink = SimpleRTPSink::createNew(env, rtpGroupsock, rtpPayloadTypeIfDynamic,
+                                             std::stoi(sampleRate), "audio",
                                              "L16", std::stoi(channels), True, False);
     }
     return videoSink;
 }
 
-char const *BaseServerMediaSubsession::getAuxLine(V4L2DeviceSource *source, unsigned char rtpPayloadType) {
+char const *
+BaseServerMediaSubsession::getAuxLine(V4L2DeviceSource *source, unsigned char rtpPayloadType) {
     const char *auxLine = NULL;
     if (source) {
         std::ostringstream os;

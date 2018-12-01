@@ -23,11 +23,10 @@
 
 #include "../../simple_utils.h"
 
-////////////////////////////////////////////////////////
-
+// 在我们参考的v4l2实现当中，v4l2是从Linux当中的video设备当中读取出原始的视频流数据信息
+// 但是我们是不需要
 class V4L2DeviceSource : public FramedSource {
 public:
-    // 从v4l2设备当中捕获到的一帧
     // ---------------------------------
     // Captured frame
     // ---------------------------------
@@ -67,7 +66,6 @@ public:
     // 用于创建V4L2DeviceSource的静态工厂方法
     // 在这里我们使用了DeviceInterface来创建V4L2DeviceSource的实例
     static V4L2DeviceSource *createNew(UsageEnvironment &env,
-                                       int outputFd,
                                        unsigned int queueSize,
                                        bool useThread);
 
@@ -83,7 +81,7 @@ public:
 //    int getCaptureFormat() { return m_device->getCaptureFormat(); };
 
 protected:
-    V4L2DeviceSource(UsageEnvironment &env, int outputFd,
+    V4L2DeviceSource(UsageEnvironment &env,
                      unsigned int queueSize,
                      bool useThread);
 
@@ -138,7 +136,6 @@ protected:
     Stats m_in;
     Stats m_out;
     EventTriggerId m_eventTriggerId;
-    int m_outfd;
     unsigned int m_queueSize;
     pthread_t m_thid;
     pthread_mutex_t m_mutex;
