@@ -3,6 +3,8 @@
 #include "AdasUtil.h"
 #include <stdio.h>
 #include <fcntl.h>
+#include <unistd.h>
+#include <sys/uio.h>
 
 #define TAG_H "rtmp_service"
 
@@ -19,51 +21,34 @@ void *H264DataListenerImpl::send(void *data_callback) {
     pthread_exit(NULL);
 }
 
+// TODO: 但是这样有一个问题，就是我们的这个文件会越来越大，到时候会引出另外一个问题
+static const char* file_name = "/sdcard/cache_video.file";
+
 /*
  * 将数据帧发送出去
  */
 void *H264DataListenerImpl::send_video_frame() {
     encoding = true;
-    LOGD_T(TAG_H, "start send out the video frame %d", encoding);
+    LOGD_T(TAG_H, "start writing data to local file %d", encoding);
     while (encoding) {
-        std::shared_ptr<H264FrameData *> ptr = encoded_frame_queue.wait_and_pop();
-        H264FrameData *encoded_frame = *ptr.get();
+        std::shared_ptr<RawH264FrameData *> ptr = encoded_frame_queue.wait_and_pop();
+        RawH264FrameData *encoded_frame = *ptr.get();
         if (encoded_frame != NULL) {
-            if (encoded_frame->frame_type == FRAME_TYPE_SPS_N_PPS) {
-                LOGD_T(TAG_H, "----> send out the sps and pps frame");
-//                int send_sps_n_pps_result = rtmpHandle->sendSpsAndPps(encoded_frame->mSps_data,
-//                                                                      encoded_frame->mSps_data_len,
-//                                                                      encoded_frame->mPps_data,
-//                                                                      encoded_frame->mPps_data_len);
-//                if (!send_sps_n_pps_result) {
-//                    LOGD_T(TAG_H, "send sps and pps result are %d", send_sps_n_pps_result);
-//                    stop();
-//                }
-            } else if (encoded_frame->frame_type == FRAME_TYPE_VIDEO) {
-                LOGD_T(TAG_H, "-----> send out the video frame");
-//                int send_video_data_result = rtmpHandle->sendVideoData(
-//                        encoded_frame->mVideo_frame_data,
-//                        encoded_frame->mVideo_data_len,
-//                        encoded_frame->time_stamp);
-//                LOGD_T(TAG_H, "send video data result are %d", send_video_data_result);
-//                if (!send_video_data_result) {
-//                    LOGD_T(TAG_H, "stop send the video data");
-//                    stop();
-//                }
-            } else {
-                LOGD_T(TAG_H, "-----> Exit this thread.");
+            // TODO: 将数据写入到本地当中
+            if (encodedDataFd == -1) {
+                // 创建文件
+                encodedDataFd = open(file_name, O_CREAT | O_APPEND | O_WRONLY, 0664);
             }
+            struct iovec vec[1];
+            vec[0].iov_base = (void *) encoded_frame->raw_frame;
+            vec[0].iov_len = strlen(reinterpret_cast<const char *>(encoded_frame->raw_frame)) + 1;
+            int write_size = writev(encodedDataFd, vec, 1);
+            LOGD_T(TAG_H, "write encoded frame data to local with size of %d", write_size);
             delete encoded_frame;
         }
     }
     return 0;
 }
-
-BYTE *sps = nullptr;
-BYTE *pps = nullptr;
-
-const uint8_t pps_len = 4;
-uint8_t sps_len = 0;
 
 /**
  * 我们需要识别出数据当中的pps和sps，以及普通视频帧,
@@ -81,56 +66,11 @@ H264DataListenerImpl::onVideoFrame(uint8_t *data, uint32_t flags, int32_t offset
         LOGD_T(TAG_H, "cannot the get the rtmp handle address");
         return;
     }
-    int64_t timestamp_t = AdasUtil::currentTimeMillis() / 1000;
+    // int64_t timestamp_t = AdasUtil::currentTimeMillis() / 1000;
 
     LOGD_T(TAG_H, "current frame flags %d, all data size %d", flags, size);
-
-    if (flags == SPS_N_PPS_FRAME_FLAG) {
-        LOGD_T(TAG_H, "current frame type are SPS and PPS");
-        // sps为[4, size - 8]
-        // pps为后四个字节
-        if (sps_len == 0) {
-            sps_len = static_cast<uint8_t >(size - 12);
-        }
-        if (sps != nullptr) {
-            delete[] sps;
-        }
-        sps = new BYTE[sps_len];
-        for (int32_t index = 0, pps_data_index = 4; pps_data_index < size - 8;) {
-            sps[index++] = data[pps_data_index++];
-        }
-        if (pps != nullptr) {
-            delete[] pps;
-        }
-        pps = new BYTE[pps_len];
-        for (int32_t pps_index = 0, data_index = size - 4; data_index < size;) {
-            pps[pps_index++] = data[data_index++];
-        }
-    } else if (flags == KEY_FRAME_FRAME_FLAG) {
-        LOGD_T(TAG_H, "current frame type are key frame");
-        H264FrameData *sps_n_pps_control_frame = new H264FrameData(FRAME_TYPE_SPS_N_PPS,
-                                                                   sps,
-                                                                   sps_len,
-                                                                   pps,
-                                                                   pps_len,
-                                                                   NULL,
-                                                                   0,
-                                                                   timestamp_t);
-        encoded_frame_queue.push(sps_n_pps_control_frame);
-
-        H264FrameData *key_frame = new H264FrameData(FRAME_TYPE_VIDEO, NULL, 0, NULL, 0,
-                                                     data, size, timestamp_t);
-        encoded_frame_queue.push(key_frame);
-
-    } else if (flags == NORMAL_FRAME_FLAG) {
-        LOGD_T(TAG_H, "current frame are normal frame ");
-        H264FrameData *normal_video_frame = new H264FrameData(FRAME_TYPE_VIDEO,
-                                                              NULL, 0, NULL, 0,
-                                                              data, size, timestamp_t);
-        encoded_frame_queue.push(normal_video_frame);
-    }
+    encoded_frame_queue.push(new RawH264FrameData(data));
 }
-
 
 H264DataListenerImpl::~H264DataListenerImpl() {
     LOGD_T(TAG_H, "delete the H264 data listener callback instance ");
@@ -139,8 +79,12 @@ H264DataListenerImpl::~H264DataListenerImpl() {
         mKyEncoderControllerCallback = nullptr;
     }
     mKyEncoderControlCallbackAddress = -1;
+    if (this->encodedDataFd != -1) {
+        // 关闭encodedDataFd
+        close(encodedDataFd);
+        this->encodedDataFd = -1;
+    }
 }
-
 
 void H264DataListenerImpl::stop() {
     LOGD_T(TAG_H, "stop the h264 data sender, encoding ? %d", encoding);
@@ -149,7 +93,7 @@ void H264DataListenerImpl::stop() {
         encoding = false;
         // 这里放置一个空的帧数据，是为了防止当我们停止发送帧时，会导致encoded_frame_queue
         // 在无线等待，而导致程序死循环，引发ANR
-        H264FrameData *data = new H264FrameData(0, NULL, 0, NULL, 0, NULL, 0, 0);
+        RawH264FrameData *data = new RawH264FrameData(nullptr);
         encoded_frame_queue.push(data);
         pthread_join(send_thread_id, NULL);
     }
@@ -169,47 +113,15 @@ void H264DataListenerImpl::storeKyEncoderCallback(IKyEncoderControllerCallback *
     this->mKyEncoderControlCallbackAddress = callbackObjAddress;
 }
 
-H264FrameData::H264FrameData(int frame_type,
-                             BYTE *sps_data,
-                             uint8_t sps_data_len,
-                             BYTE *pps_data,
-                             uint8_t pps_data_len,
-                             BYTE *video_frame_data,
-                             int32_t video_data_len,
-                             const int64_t time_stamp) :
-        frame_type(frame_type),
-        mSps_data_len(sps_data_len),
-        mPps_data_len(pps_data_len),
-        mVideo_data_len(video_data_len),
-        time_stamp(time_stamp),
-        mSps_data(NULL),
-        mPps_data(NULL),
-        mVideo_frame_data(NULL) {
-    if (sps_data != NULL) {
-        mSps_data = static_cast<uint8_t *>(malloc(sps_data_len + 1));
-        memcpy(mSps_data, sps_data, sps_data_len);
-    }
-    if (pps_data != NULL) {
-        mPps_data = static_cast<uint8_t *>(malloc(pps_data_len + 1));
-        memcpy(mPps_data, pps_data, pps_data_len);
-    }
-    if (video_frame_data != NULL) {
-        mVideo_frame_data = static_cast<uint8_t *>(malloc(video_data_len + 1));
-        memcpy(mVideo_frame_data, video_frame_data, static_cast<size_t>(video_data_len));
-    }
+int H264DataListenerImpl::getEncodedDataFd() {
+    return this->encodedDataFd;
 }
 
-H264FrameData::~H264FrameData() {
-    if (mSps_data != NULL) {
-        free(mSps_data);
-        mSps_data = NULL;
+RawH264FrameData::RawH264FrameData(BYTE *raw_frame) : raw_frame(raw_frame) {
+}
+
+RawH264FrameData::~RawH264FrameData() {
+    if (raw_frame != nullptr) {
+        delete raw_frame;
     }
-    if (mPps_data != NULL) {
-        free(mPps_data);
-        mPps_data = NULL;
-    }
-    if (mVideo_frame_data != NULL) {
-        free(mVideo_frame_data);
-        mVideo_frame_data = NULL;
-    }
-};
+}

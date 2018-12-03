@@ -11,7 +11,6 @@
 #include "include/UnicastServerMediaSubsession.h"
 #include "include/DeviceSource.h"
 
-// 针对单播的MediaSession
 // -----------------------------------------
 //    ServerMediaSubSession for Unicast
 // -----------------------------------------

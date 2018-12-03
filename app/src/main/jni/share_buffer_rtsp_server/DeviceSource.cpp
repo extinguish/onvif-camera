@@ -39,20 +39,26 @@ int V4L2DeviceSource::Stats::notify(int tv_sec, int framesize) {
 // ---------------------------------
 V4L2DeviceSource *
 V4L2DeviceSource::createNew(UsageEnvironment &env, unsigned int queueSize,
-                            bool useThread) {
+                            bool useThread, int fd) {
     V4L2DeviceSource *source = NULL;
-    source = new V4L2DeviceSource(env, queueSize, useThread);
+    source = new V4L2DeviceSource(env, queueSize, useThread, fd);
     return source;
 }
 
-// Constructor
+/**
+ * 我们支持两种方式来获取编码好的视频数据
+ * 第一种是使用thread,第二种是使用live555 mediaServer内部提供的
+ * TaskScheduler来进行管理.
+ */
 V4L2DeviceSource::V4L2DeviceSource(UsageEnvironment &env,
                                    unsigned int queueSize,
-                                   bool useThread)
+                                   bool useThread,
+                                   int fd)
         : FramedSource(env),
           m_in("in"),
           m_out("out"),
           m_queueSize(queueSize) {
+    this->videoDataFd = fd;
     m_eventTriggerId = envir().taskScheduler().createEventTrigger(
             V4L2DeviceSource::deliverFrameStub);
     memset(&m_thid, 0, sizeof(m_thid));
@@ -66,11 +72,10 @@ V4L2DeviceSource::V4L2DeviceSource(UsageEnvironment &env,
         // 不使用单独的thread来从视频设备当中读取视频流数据
         // 而是通过使用UsageEnvironment当中的TaskScheduler来协调规划
         // 读取视频流的任务
-        // FIXME: guoshichao: 稍后解开注释，进行修复
-//        envir().taskScheduler()
-//                .turnOnBackgroundReadHandling(m_device->getFd(),
-//                                              V4L2DeviceSource::incomingPacketHandlerStub,
-//                                              this);
+        envir().taskScheduler()
+                .turnOnBackgroundReadHandling(fd,
+                                              V4L2DeviceSource::incomingPacketHandlerStub,
+                                              this);
     }
 }
 
@@ -79,15 +84,29 @@ V4L2DeviceSource::~V4L2DeviceSource() {
     envir().taskScheduler().deleteEventTrigger(m_eventTriggerId);
     pthread_join(m_thid, NULL);
     pthread_mutex_destroy(&m_mutex);
-    // FIXME: guoshichao: 稍后解开注释，进行修复
-//    delete m_device;
 }
 
-/// 由DeviceSource#threadStub()方法调用
-/// 而DeviceSource#threadStub()方法则在DeviceSource的构造函数当中被调用
-/// 即只要创建了DeviceSource的实例，就会自动开启当前的这个thread
+// 由DeviceSource#threadStub()方法调用
+// 而DeviceSource#threadStub()方法则在DeviceSource的构造函数当中被调用
+// 即只要创建了DeviceSource的实例，就会自动开启当前的这个thread
 // thread mainloop
 void *V4L2DeviceSource::thread() {
+    // 我们需要再这里获取到对应的视频流信息
+    // 即我们需要在这里同H264DataListenerImpl#onVideoFrame()方法结合起来
+    // H264DataListenerImpl#onVideoFrame()方法会由编码好的数据，然后我们将编码好的数据
+    // 就可以直接交给当前的DeviceSource(DeviceSource内部会调用H264_V4l2DeviceSource,
+    // 最终的H264_V4l2DeviceSource本身会负责将数据进行处理，包括解析出其中的sps和pps,然后
+    // 交给RTSPServerMediaSession进行处理)
+    // 理想情况下，我们应该通过使用两个interface将DeviceSource和IH264DataListener组合起来
+    // 然后传输视频流数据，但是还没有想到比较好的方式，所以这里使用的是一种简化的方式，即
+    // 直接通过文件描述符来进行操作
+    // TODO: 可以尝试将DeviceSource和IH264DataListener组合起来,省略写文件的步骤
+    if (this->videoDataFd != -1) {
+        LOGERR(LOG_TAG,
+               "the video data fd are -1, do not have data to feed to RTSP server, just return");
+        return NULL;
+    }
+
     int stop = 0;
     fd_set fdset;
     FD_ZERO(&fdset);
@@ -96,10 +115,7 @@ void *V4L2DeviceSource::thread() {
     LOGD_T(LOG_TAG, "begin thread");
     while (!stop) {
         // 以下的fd是我们的视频流来源的文件描述符
-        // FIXME: guoshichao: 稍后解开注释，进行修复
-//        int fd = m_device->getFd();
-        int fd = -1; // FIXME: guoshichao: 这是临时为了编译进行的修改，原始的实现是int fd = m_device_getFd();
-
+        int fd = this->videoDataFd;
         FD_SET(fd, &fdset);
         tv.tv_sec = 1;
         tv.tv_usec = 0;
@@ -161,10 +177,11 @@ void V4L2DeviceSource::deliverFrame() {
             timeval diff;
             timersub(&curTime, &(frame->m_timestamp), &diff);
 
+            int diffTime = (diff.tv_sec * 1000 + diff.tv_usec / 1000);
             LOGD_T(LOG_TAG,
                    "deliver frame time stamp of %ld.%d \n frame size are %d \t diff %d, queue size %d",
                    curTime.tv_sec, curTime.tv_usec, fFrameSize,
-                   (diff.tv_sec * 1000 + diff.tv_usec / 1000),
+                   diffTime,
                    m_captureQueue.size());
 
             fPresentationTime = frame->m_timestamp;
@@ -196,25 +213,26 @@ void V4L2DeviceSource::incomingPacketHandler() {
 int V4L2DeviceSource::getNextFrame() {
     timeval ref;
     gettimeofday(&ref, NULL);
-    // FIXME: guoshichao: 稍后解开注释，进行修复
-//    char buffer[m_device->getBufferSize()];
-//    int frameSize = m_device->read(buffer, m_device->getBufferSize());
-    // FIXME: guoshichao: 以下是临时的实现，稍后恢复成上面的实现，然后进行修正
-    char buffer[2046]; // fixme: guoshichao 这里的buffer和下面的frameSize是随便填写的,稍后恢复
-    int frameSize = 100;  // fixme: guoshichao 这里的frameSize的值指的是从v4l2Device当中读取出来的视频帧数，但是我们这里随便填写了一个值。为了编译通过，稍后修改
-
+    // FIXME: guoshichao 这里的bufferSize不应该是固定大小的，应该根据我们写入的数据的大小来进行评估
+    // FIXME: guoshichao 这里的bufferSize是否可以由FD_SELECT那里获得???
+    const int bufferSize = 1000;
+    char buffer[bufferSize];
+    int frameSize = readFrameFromFile(buffer, bufferSize);
 
     if (frameSize < 0) {
         LOGD_T(LOG_TAG, "V4L2DeviceSource::getNextFrame errno: %d, %s", errno, strerror(errno));
     } else if (frameSize == 0) {
-        LOGD_T(LOG_TAG, "V4L2DeviceSource::getNextFrame no data errno: %d, %s", errno, strerror(errno));
+        LOGD_T(LOG_TAG, "V4L2DeviceSource::getNextFrame no data errno: %d, %s", errno,
+               strerror(errno));
     } else {
+        // 读取数据成功
         timeval tv;
         gettimeofday(&tv, NULL);
         timeval diff;
         timersub(&tv, &ref, &diff);
         m_in.notify(tv.tv_sec, frameSize);
-        LOGD_T(LOG_TAG, "getNextFrame\ttimestamp: %ld.%ld \tsize: %d", ref.tv_sec, ref.tv_usec, frameSize);
+        LOGD_T(LOG_TAG, "getNextFrame\ttimestamp: %ld.%ld \tsize: %d", ref.tv_sec, ref.tv_usec,
+               frameSize);
         processFrame(buffer, frameSize, ref);
     }
     return frameSize;
@@ -245,8 +263,8 @@ void V4L2DeviceSource::processFrame(char *frame, int frameSize, const timeval &r
     }
 }
 
-/// 由V4L2DeviceSource::processFrame()方法调用
-/// queueFrame()当中接受的frame是来自于splitFrame()方法解析过的frame数据
+// 由V4L2DeviceSource::processFrame()方法调用
+// queueFrame()当中接受的frame是来自于splitFrame()方法解析过的frame数据
 // post a frame to fifo
 void V4L2DeviceSource::queueFrame(char *frame, int frameSize, const timeval &tv) {
     pthread_mutex_lock(&m_mutex);
@@ -265,13 +283,13 @@ void V4L2DeviceSource::queueFrame(char *frame, int frameSize, const timeval &tv)
     envir().taskScheduler().triggerEvent(m_eventTriggerId, this);
 }
 
-/// 该方法由DeviceSource#processFrame()方法调用
-/// 再运行时，splitFrames()并不一定是这里的实现，而有可能是
-/// H264_V4L2DeviceSource#splitFrames()方法的实现.
-/// 对于原始的V4L2DeviceSource实现来说，是直接将每一帧的数据都直接放到frameList当中
-/// 不进行处理
-/// 对于H264_V4l2DeviceSource来说，会对这里的每一个frame解析一下，然后再处理，
-/// 即解析出其中的sps和pps
+// 该方法由DeviceSource#processFrame()方法调用
+// 再运行时，splitFrames()并不一定是这里的实现，而有可能是
+// H264_V4L2DeviceSource#splitFrames()方法的实现.
+// 对于原始的V4L2DeviceSource实现来说，是直接将每一帧的数据都直接放到frameList当中
+// 不进行处理
+// 对于H264_V4l2DeviceSource来说，会对这里的每一个frame解析一下，然后再处理，
+// 即解析出其中的sps和pps
 // split packet in frames					
 std::list<std::pair<unsigned char *, size_t> > V4L2DeviceSource::splitFrames(unsigned char *frame,
                                                                              unsigned frameSize) {
@@ -280,6 +298,15 @@ std::list<std::pair<unsigned char *, size_t> > V4L2DeviceSource::splitFrames(uns
         frameList.push_back(std::pair<unsigned char *, size_t>(frame, frameSize));
     }
     return frameList;
+}
+
+size_t V4L2DeviceSource::readFrameFromFile(char *buffer, size_t bufferSize) {
+    // TODO: 读取数据
+    size_t readSize = 0;
+    memset(&buffer, 0, sizeof(buffer));
+
+
+    return 0;
 }
 
 

@@ -25,16 +25,20 @@ include $(CLEAR_VARS)
 
 $(info "current local path are :" $(ROOT_PATH))
 
-# curious here, that we must specify the detailed path of the color_converter.c file
-LOCAL_SRC_FILES := $(ROOT_PATH)/color_converter.cc \
-                   $(ROOT_PATH)/color_convert_jni.cc
+# 然后就是ipcamera_rtsp_server的控制入口
+LOCAL_SRC_FILES := $(ROOT_PATH)/ky_encoder_jni.cpp \
+                   $(ROOT_PATH)/SimpleController.cpp \
+
 
 LOCAL_C_INCLUDES := $(ROOT_PATH)/ \
-                    $(ROOT_PATH)/../libyuv/include \
+                    $(ROOT_PATH)/../share_buffer_rtsp_server/include \
+                    $(ROOT_PATH)/../h264_handle/ \
 
-LOCAL_MODULE := color_converter
 
-LOCAL_SHARED_LIBRARIES := libyuv
+# Java层加载的话，只需要加载这里的adas_ipamera就可以了
+LOCAL_MODULE := adas_ipcamera
+
+LOCAL_SHARED_LIBRARIES := h264_encoder ipcamera_rtsp_server
 
 # mediandk库本身需要在Android-21以上的版本当中运行,因此我们需要确保编译时，Application.mk
 # 当中的api >= 21

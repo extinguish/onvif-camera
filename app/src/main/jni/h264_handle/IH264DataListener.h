@@ -13,38 +13,20 @@
 
 #define BYTE uint8_t
 
-#define SPS_N_PPS_FRAME_FLAG 2
-#define KEY_FRAME_FRAME_FLAG 9
-#define NORMAL_FRAME_FLAG 8
+//#define SPS_N_PPS_FRAME_FLAG 2
+//#define KEY_FRAME_FRAME_FLAG 9
+//#define NORMAL_FRAME_FLAG 8
 
-const static int FRAME_TYPE_SPS_N_PPS = 10;
-const static int FRAME_TYPE_VIDEO = 20;
+//const static int FRAME_TYPE_SPS_N_PPS = 10;
+//const static int FRAME_TYPE_VIDEO = 20;
 
-class H264FrameData {
+class RawH264FrameData {
 public:
-    // 用于判断编码之后的帧的类型
-    // 帧的类型分为两种,sps_n_pps控制帧以及普通的视频帧
-    int frame_type;
+    BYTE *raw_frame;
 
-    // sps和pps
-    BYTE *mSps_data;
-    uint8_t mSps_data_len;
-    BYTE *mPps_data;
-    uint8_t mPps_data_len;
+    RawH264FrameData(BYTE *raw_frame);
 
-    // 正常的视频帧
-    BYTE *mVideo_frame_data;
-    int32_t mVideo_data_len;
-
-    // 帧的时间戳
-    int64_t time_stamp;
-public:
-
-    H264FrameData(int frame_type, BYTE *sps_data, uint8_t sps_data_len,
-                  BYTE *pps_data, uint8_t pps_data_len, BYTE *video_frame_data,
-                  int32_t video_data_len, const int64_t time_stamp);
-
-    ~H264FrameData();
+    ~RawH264FrameData();
 };
 
 class IH264DataListener {
@@ -74,6 +56,8 @@ public:
 
     virtual void storeKyEncoderCallback(IKyEncoderControllerCallback *callback);
 
+    virtual int getEncodedDataFd();
+
     ~H264DataListenerImpl();
 
 private:
@@ -82,7 +66,7 @@ private:
     long mKyEncoderControlCallbackAddress;
     IKyEncoderControllerCallback *mKyEncoderControllerCallback;
 
-    ThreadQueue<H264FrameData *> encoded_frame_queue;
+    ThreadQueue<RawH264FrameData *> encoded_frame_queue;
 
     pthread_t send_thread_id;
 
@@ -92,6 +76,9 @@ private:
 
     bool encoding = false;
     Mutex mutex;
+
+    // 编码好的数据保存到的本地文件的fd
+    int encodedDataFd = -1;
 };
 
 #endif //NETWORKSERVICE_IH264DATALISTENER_H

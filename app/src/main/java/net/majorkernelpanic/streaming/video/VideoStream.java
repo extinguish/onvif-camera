@@ -78,6 +78,8 @@ import static net.majorkernelpanic.spydroid.SpydroidApplication.FRONT_CAMERA_WID
 public abstract class VideoStream extends MediaStream {
     protected final static String TAG = "VideoStream";
 
+    // Android目前的环境变量是如何配置的?
+    // Android怎么知道libcolor_converter.so共享库的具体位置的?
     static {
         System.loadLibrary("color_converter");
     }

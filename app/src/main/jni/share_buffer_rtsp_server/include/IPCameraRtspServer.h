@@ -36,10 +36,15 @@
 class IPCameraRtspServer {
 
 public:
+    /**
+     * hlsSegment的默认值为0
+     * 当hlsSegment的值>0时，我们使用HLS协议来作为rtsp底层的数据传输通道
+     * 目前我们不需要HLS协议
+     */
     IPCameraRtspServer(const unsigned short rtspPort = 8554,
                        const unsigned short rtspOverHttpPort = 0,
                        const int timeOut = 65,
-                       const unsigned int hslSegment = 5);
+                       const unsigned int hlsSegment = 0);
 
     ~IPCameraRtspServer();
 
@@ -51,12 +56,15 @@ public:
                const std::list<ServerMediaSubsession *> &subSession);
 
     FramedSource *
-    createFramedSource(int queueSize, bool useThread, bool repeatConfig);
+    createFramedSource(int queueSize, bool useThread, bool repeatConfig, int fd);
 
     RTSPServer *createRtspServer();
 
-    // 开启服务
-    void startServer();
+    // 开启rtsp服务
+    void startServer(int fd);
+
+    // 停止rtsp服务
+    void stopServer();
 
 private:
     TaskScheduler *scheduler;
@@ -73,6 +81,10 @@ private:
     const unsigned int timeOut;
     const unsigned int hslSegment;
 
+    // FIXME: guoshichao 这里的实现有问题
+//    static int quit;
+//
+//    static void sigHandler(int signal);
 };
 
 

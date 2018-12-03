@@ -67,23 +67,21 @@ public:
     // 在这里我们使用了DeviceInterface来创建V4L2DeviceSource的实例
     static V4L2DeviceSource *createNew(UsageEnvironment &env,
                                        unsigned int queueSize,
-                                       bool useThread);
+                                       bool useThread, int fd);
 
     std::string getAuxLine() { return m_auxLine; };
 
     void setAuxLine(const std::string auxLine) { m_auxLine = auxLine; };
 
-//    int getWidth() { return m_device->getWidth(); };
-//
-//    int getHeight() { return m_device->getHeight(); };
-//
-//    // 用于标识v4l2设备出来的视频流的捕获格式
-//    int getCaptureFormat() { return m_device->getCaptureFormat(); };
-
 protected:
+    /**
+     * fd参数就是编码好的数据写入到的文件,即我们要通过rtsp上传的数据的数据源
+     * fd的默认值我们设置为-1
+     */
     V4L2DeviceSource(UsageEnvironment &env,
                      unsigned int queueSize,
-                     bool useThread);
+                     bool useThread,
+                     int fd = -1);
 
     virtual ~V4L2DeviceSource();
 
@@ -140,6 +138,13 @@ protected:
     pthread_t m_thid;
     pthread_mutex_t m_mutex;
     std::string m_auxLine;
+    int videoDataFd;
+
+private:
+    /**
+     * 从本地的文件当中读取出视频流数据
+     */
+    size_t readFrameFromFile(char *buffer, size_t bufferSize);
 };
 
 #endif

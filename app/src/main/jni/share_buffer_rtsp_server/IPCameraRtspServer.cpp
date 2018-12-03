@@ -24,12 +24,12 @@ IPCameraRtspServer::IPCameraRtspServer(const unsigned short rtspPort,
 }
 
 IPCameraRtspServer::~IPCameraRtspServer() {
-    // TODO: 我们是无法直接删除RtspServer实例的，因为rtspServer的虚构函数是protected
-    // TODO: 我们需要参考其他实现来
-
-    // TODO: 按照live555的内部设计，对于RtspServer,TaskScheduler这样的对象，不需要我们手动回收
+    // 我们是无法直接删除RtspServer实例的，因为rtspServer的虚构函数是protected
+    // 按照live555的内部设计，对于RtspServer,TaskScheduler这样的对象，不需要我们手动回收
     // 而是通过控制整体播放的流程，然后由live555内部执行具体的回收操作.
+    // 我们直接通过Medium来进行控制
     LOGD_T(LOG_TAG, "delete the instance of IPCameraRtspServer");
+    stopServer();
 }
 
 int IPCameraRtspServer::addSession(const std::string &sessionName,
@@ -59,16 +59,19 @@ int IPCameraRtspServer::addSession(const std::string &sessionName,
     return nbSubsession;
 }
 
-
+/**
+ * 创建数据源
+ * TODO: 我们可以在这里建立一个和H264DataListener.h协作的callback
+ */
 FramedSource *
 IPCameraRtspServer::createFramedSource(int queueSize, bool useThread,
-                                       bool repeatConfig) {
+                                       bool repeatConfig, int fd) {
     FramedSource *source = NULL;
     // 采用h264进行编码
     source = H264_V4L2DeviceSource::createNew(*env,
                                               queueSize,
                                               useThread,
-                                              repeatConfig);
+                                              repeatConfig, fd);
     return source;
 }
 
@@ -85,7 +88,10 @@ IPCameraRtspServer::createRtspServer() {
     return rtspServer;
 }
 
-void IPCameraRtspServer::startServer() {
+/**
+ * fd: 我们将编好码的数据写入到的文件的文件描述符
+ */
+void IPCameraRtspServer::startServer(int fd) {
     LOGD_T(LOG_TAG, "start the IPCameraRtspServer");
     // 我们创建的rtsp视频流的url地址
     std::string baseUrl = "adas_ipcamera";
@@ -99,7 +105,7 @@ void IPCameraRtspServer::startServer() {
     bool repeatConfig = true;
 
     FramedSource *videoSource = this->createFramedSource(queueSize, useThread,
-                                                         repeatConfig);
+                                                         repeatConfig, fd);
     videoReplicator = StreamReplicator::createNew(*env, videoSource, false);
 
     // 我们只关注单播的场景
@@ -112,6 +118,18 @@ void IPCameraRtspServer::startServer() {
     // FIXME: 这里的url需要重新命名
     std::string url = "unicast";
     addSession(baseUrl + url, subSessionList);
-
-
 }
+
+void IPCameraRtspServer::stopServer() {
+    // FIXME: signal函数的实现有问题
+    // signal(SIGINT, sigHandler);
+    // this->env->taskScheduler().doEventLoop(&quit);
+    Medium::close(rtspServer);
+    // 回收UsageEnvironment资源
+    env->reclaim();
+}
+
+//void IPCameraRtspServer::sigHandler(int signal) {
+//    LOGD_T(LOG_TAG, "received signal of %d", signal);
+//    quit = 1;
+//}

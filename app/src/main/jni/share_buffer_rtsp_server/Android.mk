@@ -19,11 +19,14 @@ LOCAL_C_INCLUDES := $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/../live_server/UsageEnviro
                     $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/../live_server/liveMedia/include \
                     $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/../live_server/mediaServer/include \
                     $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/include \
-                    $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/../simple_utils.h
+                    $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/../simple_utils.h \
+                    $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/../h264_handle/IH264DataListener.h \
 
 
 # 我们需要依赖live555 media_server库
-LOCAL_SHARED_LIBRARIES := media_server
+# 还需要依赖h264_encoder库，依赖h264_encoder主要是为了接收编码好的数据
+# h264_encoder对于我们来说就是一个数据源
+LOCAL_SHARED_LIBRARIES := media_server h264_encoder
 
 include $(BUILD_SHARED_LIBRARY)
 
