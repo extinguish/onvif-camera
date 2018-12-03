@@ -8,7 +8,7 @@
 
 // TODO: guoshichao 这里的ENABLE_DEBUG变量应该由CMake或者Android.mk来控制
 // 然后CMake和Android.mk本身由build.gradle来控制，最终由gradle product flavor完成自动化控制
-#define ENABLE_DEBUG FALSE
+#define ENABLE_DEBUG TRUE
 
 #define DEFAULT_TAG "simple_rtsp_server"
 

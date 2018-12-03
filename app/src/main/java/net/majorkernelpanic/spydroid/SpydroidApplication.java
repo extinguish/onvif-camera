@@ -65,7 +65,8 @@ public class SpydroidApplication extends android.app.Application {
     public final static String TAG = "SpydroidApplication";
 
     static {
-        System.loadLibrary("simple_rtsp_server");
+        // 用于实现IPCamera的so文件
+        System.loadLibrary("adas_ipcamera");
     }
 
     /**
@@ -76,7 +77,7 @@ public class SpydroidApplication extends android.app.Application {
      */
     public static final boolean USE_SHARE_BUFFER_DATA = false;
 
-    private static final boolean USE_NATIVE_RTSP_SERVER = true;
+    public static final boolean USE_NATIVE_RTSP_SERVER = true;
     /**
      * Default quality of video streams.
      */

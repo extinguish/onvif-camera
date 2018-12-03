@@ -17,7 +17,7 @@
 #include <media/NdkMediaMuxer.h>
 #include "CodecParams.h"
 #include "log.h"
-#include "ThreadQueue.hpp"
+#include "../ThreadQueue.hpp"
 #include "Mutex.h"
 #include "IH264DataListener.h"
 

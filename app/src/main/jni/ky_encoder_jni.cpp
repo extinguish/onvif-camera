@@ -22,8 +22,6 @@
 extern "C" {
 #endif
 
-// TODO: guoshichao 目前的实现当中，会存在完全相同的两个SimpleController实例
-// 这是不必要的，只保留一个SimpleController实例，内部管理两个KyEncoder实例，减少异常错误发生
 static jlong native_create(JNIEnv *env, jobject thiz) {
     LOGD_T(TAG_J, "create the encode ");
     SimpleController *controller = new SimpleController();
@@ -87,8 +85,6 @@ static jboolean native_start(JNIEnv *env, jobject thiz, jlong objAddress) {
     return JNI_TRUE;
 }
 
-// TODO: guoshichao 将这里的实现修改为按照不同的camera来进行编码实现,而不是直接粗暴的生成个两个KyEncoder实例
-// 使用更简洁的组织实现方式
 static jboolean
 native_encode_frame(JNIEnv *env, jobject thiz, jlong objAddress, jbyteArray frame, jint frame_width,
                     jint frame_height) {
@@ -155,19 +151,19 @@ static jboolean native_release(JNIEnv *env, jobject thiz, jlong objAddress) {
 
 static JNINativeMethod gMethods[] = {
         // long create()
-        {"create",      "()J",                                                          (void *) native_create},
-        // boolean prepare(long, org.transfer.encoder.KyEncoderWrapper$EncodeParam)
-        {"prepare",     "(JLcom/adasplus/rtmp/encoder/KyEncoderWrapper$EncodeParam;)Z", (void *) native_prepare},
+        {"create",      "()J",                                                              (void *) native_create},
+        // boolean prepare(long, com.adasplus.ipcamera.encoder.KyEncoderWrapper$EncodeParam)
+        {"prepare",     "(JLcom/adasplus/ipcamera/encoder/KyEncoderWrapper$EncodeParam;)Z", (void *) native_prepare},
         // boolean start(long)
-        {"start",       "(J)Z",                                                         (void *) native_start},
+        {"start",       "(J)Z",                                                             (void *) native_start},
         // boolean stop(long)
-        {"stop",        "(J)Z",                                                         (void *) native_stop},
+        {"stop",        "(J)Z",                                                             (void *) native_stop},
         // boolean destroy(long)
-        {"destroy",     "(J)Z",                                                         (void *) native_destroy},
+        {"destroy",     "(J)Z",                                                             (void *) native_destroy},
         // boolean encodeFrame(long, byte[], int, int)
-        {"encodeFrame", "(J[BII)Z",                                                     (void *) native_encode_frame},
+        {"encodeFrame", "(J[BII)Z",                                                         (void *) native_encode_frame},
         // boolean release(long)
-        {"release",     "(J)Z",                                                         (void *) native_release}
+        {"release",     "(J)Z",                                                             (void *) native_release}
 };
 
 static int registerNativeMethods(JNIEnv *env, const char *className, JNINativeMethod *gMethods,

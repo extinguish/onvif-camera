@@ -27,8 +27,8 @@ protected:
     H26X_V4L2DeviceSource(UsageEnvironment &env,
                           unsigned int queueSize,
                           bool useThread,
-                          bool repeatConfig, int fd)
-            : V4L2DeviceSource(env, queueSize, useThread, fd),
+                          bool repeatConfig)
+            : V4L2DeviceSource(env, queueSize, useThread),
               m_repeatConfig(repeatConfig),
               m_frameType(0) {}
 
@@ -48,16 +48,16 @@ public:
     static H264_V4L2DeviceSource *
     createNew(UsageEnvironment &env,
               unsigned int queueSize, bool useThread,
-              bool repeatConfig, int fd) {
+              bool repeatConfig) {
         return new H264_V4L2DeviceSource(env, queueSize,
-                                         useThread, repeatConfig, fd);
+                                         useThread, repeatConfig);
     }
 
 protected:
     H264_V4L2DeviceSource(UsageEnvironment &env,
                           unsigned int queueSize,
-                          bool useThread, bool repeatConfig, int fd)
-            : H26X_V4L2DeviceSource(env, queueSize, useThread, repeatConfig, fd) {}
+                          bool useThread, bool repeatConfig)
+            : H26X_V4L2DeviceSource(env, queueSize, useThread, repeatConfig) {}
 
     // override V4L2DeviceSource
     virtual std::list<std::pair<unsigned char *, size_t> >

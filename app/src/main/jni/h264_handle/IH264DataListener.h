@@ -8,8 +8,10 @@
 #include <stdio.h>
 #include "../simple_utils.h"
 #include "Mutex.h"
-#include "ThreadQueue.hpp"
+#include "../ThreadQueue.hpp"
 #include "IKyEncoderControllerCallback.h"
+#include "../share_buffer_rtsp_server/include/IPCameraRtspServer.h"
+#include "../RawFrame.hpp"
 
 #define BYTE uint8_t
 
@@ -19,15 +21,6 @@
 
 //const static int FRAME_TYPE_SPS_N_PPS = 10;
 //const static int FRAME_TYPE_VIDEO = 20;
-
-class RawH264FrameData {
-public:
-    BYTE *raw_frame;
-
-    RawH264FrameData(BYTE *raw_frame);
-
-    ~RawH264FrameData();
-};
 
 class IH264DataListener {
 public:
@@ -56,17 +49,20 @@ public:
 
     virtual void storeKyEncoderCallback(IKyEncoderControllerCallback *callback);
 
-    virtual int getEncodedDataFd();
+    void storeIPCameraRtspServerObjAddress(IPCameraRtspServer *ipcameraRtspServerObj);
 
     ~H264DataListenerImpl();
 
 private:
-    long rtmpHandleAddress;
+    IPCameraRtspServer *rtspServer;
+    long ipcameraRtspServerObjAddress;
 
     long mKyEncoderControlCallbackAddress;
     IKyEncoderControllerCallback *mKyEncoderControllerCallback;
 
-    ThreadQueue<RawH264FrameData *> encoded_frame_queue;
+    // encoded_frame_queue在H264DataListenerImpl当中只是负责数据的添加
+    // 数据的获取是在V4L2DeviceSource当中
+    ThreadQueue<RawH264FrameData *> *encoded_frame_queue = new ThreadQueue<RawH264FrameData *>();
 
     pthread_t send_thread_id;
 
@@ -75,10 +71,10 @@ private:
     static void *send(void *data_callback);
 
     bool encoding = false;
+    // 是否将编码好的h264数据队列传递给DeviceSource
+    bool setupNegotiate = false;
     Mutex mutex;
 
-    // 编码好的数据保存到的本地文件的fd
-    int encodedDataFd = -1;
 };
 
 #endif //NETWORKSERVICE_IH264DATALISTENER_H

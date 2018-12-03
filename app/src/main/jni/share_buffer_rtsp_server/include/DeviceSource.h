@@ -21,7 +21,10 @@
 // live555
 #include "../../live_server/liveMedia/include/FramedSource.hh"
 
+// project
 #include "../../simple_utils.h"
+#include "../../ThreadQueue.hpp"
+#include "../../RawFrame.hpp"
 
 // 在我们参考的v4l2实现当中，v4l2是从Linux当中的video设备当中读取出原始的视频流数据信息
 // 但是我们是不需要
@@ -67,11 +70,13 @@ public:
     // 在这里我们使用了DeviceInterface来创建V4L2DeviceSource的实例
     static V4L2DeviceSource *createNew(UsageEnvironment &env,
                                        unsigned int queueSize,
-                                       bool useThread, int fd);
+                                       bool useThread);
 
     std::string getAuxLine() { return m_auxLine; };
 
     void setAuxLine(const std::string auxLine) { m_auxLine = auxLine; };
+
+    void setupRawH264FrameQueue(long rawH264FrameQueueObjAddress);
 
 protected:
     /**
@@ -80,8 +85,7 @@ protected:
      */
     V4L2DeviceSource(UsageEnvironment &env,
                      unsigned int queueSize,
-                     bool useThread,
-                     int fd = -1);
+                     bool useThread);
 
     virtual ~V4L2DeviceSource();
 
@@ -98,14 +102,17 @@ protected:
 
     void deliverFrame();
 
-    static void incomingPacketHandlerStub(void *clientData,
-                                          int mask) {
-        ((V4L2DeviceSource *) clientData)->incomingPacketHandler();
-    };
+    // TODO: 以下的方式原理同thread()一样，但是内部细节有些区别,以后有时间可以内部看一下TaskScheduler的内部实现，
+    // TODO: 查看同原生Pthread的实现区别
+    // 即在借助TaskScheduler
+//    static void incomingPacketHandlerStub(void *clientData,
+//                                          int mask) {
+//        ((V4L2DeviceSource *) clientData)->incomingPacketHandler();
+//    };
 
-    void incomingPacketHandler();
+    // void incomingPacketHandler();
 
-    int getNextFrame();
+    int getNextFrame(char *frame_data, int frame_size);
 
     void processFrame(char *frame, int frameSize, const timeval &ref);
 
@@ -138,13 +145,8 @@ protected:
     pthread_t m_thid;
     pthread_mutex_t m_mutex;
     std::string m_auxLine;
-    int videoDataFd;
 
-private:
-    /**
-     * 从本地的文件当中读取出视频流数据
-     */
-    size_t readFrameFromFile(char *buffer, size_t bufferSize);
+    ThreadQueue<RawH264FrameData *> *raw_h264_frame_queue;
 };
 
 #endif

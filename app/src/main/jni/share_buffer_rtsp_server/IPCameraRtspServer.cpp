@@ -61,17 +61,16 @@ int IPCameraRtspServer::addSession(const std::string &sessionName,
 
 /**
  * 创建数据源
- * TODO: 我们可以在这里建立一个和H264DataListener.h协作的callback
  */
 FramedSource *
 IPCameraRtspServer::createFramedSource(int queueSize, bool useThread,
-                                       bool repeatConfig, int fd) {
+                                       bool repeatConfig) {
     FramedSource *source = NULL;
     // 采用h264进行编码
     source = H264_V4L2DeviceSource::createNew(*env,
                                               queueSize,
                                               useThread,
-                                              repeatConfig, fd);
+                                              repeatConfig);
     return source;
 }
 
@@ -91,7 +90,7 @@ IPCameraRtspServer::createRtspServer() {
 /**
  * fd: 我们将编好码的数据写入到的文件的文件描述符
  */
-void IPCameraRtspServer::startServer(int fd) {
+void IPCameraRtspServer::startServer() {
     LOGD_T(LOG_TAG, "start the IPCameraRtspServer");
     // 我们创建的rtsp视频流的url地址
     std::string baseUrl = "adas_ipcamera";
@@ -104,8 +103,9 @@ void IPCameraRtspServer::startServer(int fd) {
     bool useThread = true;
     bool repeatConfig = true;
 
-    FramedSource *videoSource = this->createFramedSource(queueSize, useThread,
-                                                         repeatConfig, fd);
+    videoSource = this->createFramedSource(queueSize, useThread,
+                                           repeatConfig);
+
     videoReplicator = StreamReplicator::createNew(*env, videoSource, false);
 
     // 我们只关注单播的场景
@@ -127,6 +127,10 @@ void IPCameraRtspServer::stopServer() {
     Medium::close(rtspServer);
     // 回收UsageEnvironment资源
     env->reclaim();
+}
+
+long IPCameraRtspServer::getFramedSourceObjAddress() {
+    return reinterpret_cast<long>(videoSource);
 }
 
 //void IPCameraRtspServer::sigHandler(int signal) {

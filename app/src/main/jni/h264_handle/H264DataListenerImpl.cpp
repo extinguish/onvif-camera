@@ -21,31 +21,19 @@ void *H264DataListenerImpl::send(void *data_callback) {
     pthread_exit(NULL);
 }
 
-// TODO: 但是这样有一个问题，就是我们的这个文件会越来越大，到时候会引出另外一个问题
-static const char* file_name = "/sdcard/cache_video.file";
-
 /*
  * 将数据帧发送出去
  */
 void *H264DataListenerImpl::send_video_frame() {
     encoding = true;
     LOGD_T(TAG_H, "start writing data to local file %d", encoding);
-    while (encoding) {
-        std::shared_ptr<RawH264FrameData *> ptr = encoded_frame_queue.wait_and_pop();
-        RawH264FrameData *encoded_frame = *ptr.get();
-        if (encoded_frame != NULL) {
-            // TODO: 将数据写入到本地当中
-            if (encodedDataFd == -1) {
-                // 创建文件
-                encodedDataFd = open(file_name, O_CREAT | O_APPEND | O_WRONLY, 0664);
-            }
-            struct iovec vec[1];
-            vec[0].iov_base = (void *) encoded_frame->raw_frame;
-            vec[0].iov_len = strlen(reinterpret_cast<const char *>(encoded_frame->raw_frame)) + 1;
-            int write_size = writev(encodedDataFd, vec, 1);
-            LOGD_T(TAG_H, "write encoded frame data to local with size of %d", write_size);
-            delete encoded_frame;
-        }
+    if (!setupNegotiate) {
+        long videoSourceObjAddress = this->rtspServer->getFramedSourceObjAddress();
+        FramedSource *videoSource = reinterpret_cast<FramedSource *>(videoSourceObjAddress);
+        V4L2DeviceSource *encapsulatedVideoSource = static_cast<V4L2DeviceSource *>(videoSource);
+        encapsulatedVideoSource->setupRawH264FrameQueue(
+                reinterpret_cast<long>(encoded_frame_queue));
+        setupNegotiate = true;
     }
     return 0;
 }
@@ -62,28 +50,37 @@ void *H264DataListenerImpl::send_video_frame() {
 void
 H264DataListenerImpl::onVideoFrame(uint8_t *data, uint32_t flags, int32_t offset,
                                    const int32_t size, int64_t time_stamp) {
-    if (this->rtmpHandleAddress == -1) {
+    if (this->ipcameraRtspServerObjAddress == -1) {
         LOGD_T(TAG_H, "cannot the get the rtmp handle address");
+        return;
+    }
+    if (rtspServer == nullptr) {
+        LOGD_T(TAG_H, "create the ipcamera rtsp server instance");
+        rtspServer = reinterpret_cast<IPCameraRtspServer *>(this->ipcameraRtspServerObjAddress);
+    } else {
+        LOGD_T(TAG_H, "the ipcamera rtsp server are already created");
+    }
+    if (this->rtspServer == nullptr) {
+        LOGERR(LOG_TAG, "the ipcamera rtsp server are invalid, so just stop encoding data");
         return;
     }
     // int64_t timestamp_t = AdasUtil::currentTimeMillis() / 1000;
 
     LOGD_T(TAG_H, "current frame flags %d, all data size %d", flags, size);
-    encoded_frame_queue.push(new RawH264FrameData(data));
+    encoded_frame_queue->push(new RawH264FrameData(data, size));
 }
 
 H264DataListenerImpl::~H264DataListenerImpl() {
     LOGD_T(TAG_H, "delete the H264 data listener callback instance ");
-    rtmpHandleAddress = -1;
+    if (this->rtspServer != nullptr) {
+        delete rtspServer;
+        rtspServer = nullptr;
+    }
+    ipcameraRtspServerObjAddress = -1;
     if (this->mKyEncoderControllerCallback != nullptr) {
         mKyEncoderControllerCallback = nullptr;
     }
     mKyEncoderControlCallbackAddress = -1;
-    if (this->encodedDataFd != -1) {
-        // 关闭encodedDataFd
-        close(encodedDataFd);
-        this->encodedDataFd = -1;
-    }
 }
 
 void H264DataListenerImpl::stop() {
@@ -93,9 +90,13 @@ void H264DataListenerImpl::stop() {
         encoding = false;
         // 这里放置一个空的帧数据，是为了防止当我们停止发送帧时，会导致encoded_frame_queue
         // 在无线等待，而导致程序死循环，引发ANR
-        RawH264FrameData *data = new RawH264FrameData(nullptr);
-        encoded_frame_queue.push(data);
+        RawH264FrameData *data = new RawH264FrameData(nullptr, 0);
+        encoded_frame_queue->push(data);
         pthread_join(send_thread_id, NULL);
+    }
+    if (encoded_frame_queue != nullptr) {
+        delete encoded_frame_queue;
+        encoded_frame_queue = nullptr;
     }
     // 通知encoder停止编码
     if (this->mKyEncoderControlCallbackAddress != -1) {
@@ -104,7 +105,13 @@ void H264DataListenerImpl::stop() {
             this->mKyEncoderControllerCallback->stopEncoding();
         }
     }
-    rtmpHandleAddress = -1;
+    if (this->rtspServer != nullptr) {
+        rtspServer->stopServer();
+        delete rtspServer;
+        rtspServer = nullptr;
+    }
+    ipcameraRtspServerObjAddress = -1;
+    setupNegotiate = false;
 }
 
 void H264DataListenerImpl::storeKyEncoderCallback(IKyEncoderControllerCallback *callback) {
@@ -113,15 +120,10 @@ void H264DataListenerImpl::storeKyEncoderCallback(IKyEncoderControllerCallback *
     this->mKyEncoderControlCallbackAddress = callbackObjAddress;
 }
 
-int H264DataListenerImpl::getEncodedDataFd() {
-    return this->encodedDataFd;
-}
-
-RawH264FrameData::RawH264FrameData(BYTE *raw_frame) : raw_frame(raw_frame) {
-}
-
-RawH264FrameData::~RawH264FrameData() {
-    if (raw_frame != nullptr) {
-        delete raw_frame;
-    }
+void
+H264DataListenerImpl::storeIPCameraRtspServerObjAddress(IPCameraRtspServer *ipCameraRtspServer) {
+    AutoMutex lock(mutex);
+    long objAddress = reinterpret_cast<long> (ipCameraRtspServer);
+    LOGD_T(TAG_H, "the address of the IPCameraRtspServer object are %ld", objAddress);
+    this->ipcameraRtspServerObjAddress = objAddress;
 }
