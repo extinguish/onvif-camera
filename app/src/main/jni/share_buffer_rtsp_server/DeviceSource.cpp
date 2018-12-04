@@ -61,21 +61,8 @@ V4L2DeviceSource::V4L2DeviceSource(UsageEnvironment &env,
             V4L2DeviceSource::deliverFrameStub);
     memset(&m_thid, 0, sizeof(m_thid));
     memset(&m_mutex, 0, sizeof(m_mutex));
-    // 判断是否使用单独的thread来从视频设备当中读取视频流数据
-    if (useThread) {
-        // 使用一个单独的thread从视频设备当中读取视频流数据
-        pthread_mutex_init(&m_mutex, NULL);
-        pthread_create(&m_thid, NULL, threadStub, this);
-    }
-//    else {
-//        // 不使用单独的thread来从视频设备当中读取视频流数据
-//        // 而是通过使用UsageEnvironment当中的TaskScheduler来协调规划
-//        // 读取视频流的任务
-//        envir().taskScheduler()
-//                .turnOnBackgroundReadHandling(fd,
-//                                              V4L2DeviceSource::incomingPacketHandlerStub,
-//                                              this);
-//    }
+    this->useThread = useThread;
+    LOGD_T(LOG_TAG, "Construct the V4L2DeviceSource instance");
 }
 
 // Destructor
@@ -155,7 +142,7 @@ void V4L2DeviceSource::deliverFrame() {
 
             int diffTime = (diff.tv_sec * 1000 + diff.tv_usec / 1000);
             LOGD_T(LOG_TAG,
-                   "deliver frame time stamp of %ld.%d \n frame size are %d \t diff %d, queue size %d",
+                   "deliver frame time stamp of %ld.%ld \n frame size are %d \t diff %d, queue size %d",
                    curTime.tv_sec, curTime.tv_usec, fFrameSize,
                    diffTime,
                    m_captureQueue.size());
@@ -272,8 +259,32 @@ std::list<std::pair<unsigned char *, size_t> > V4L2DeviceSource::splitFrames(uns
     return frameList;
 }
 
+/**
+ * setupRawH264FrameQueue(long)是整个读取流的起点，我们从这里开始对编好码的数据的处理
+ */
 void V4L2DeviceSource::setupRawH264FrameQueue(long rawH264FrameQueueObjAddress) {
+    // 我们只有在确保raw_h264_frame_queue可用之后，才能从里面读取数据
     this->raw_h264_frame_queue = reinterpret_cast<ThreadQueue<RawH264FrameData *>*>(rawH264FrameQueueObjAddress);
+
+    if (this->raw_h264_frame_queue == nullptr) {
+        LOGERR(LOG_TAG, "fail to get the raw_h264_frame_queue, so we cannot send out the frame data");
+        return;
+    }
+
+    if (this->useThread) {
+        // 使用一个单独的thread从视频设备当中读取视频流数据
+        pthread_mutex_init(&m_mutex, NULL);
+        pthread_create(&m_thid, NULL, threadStub, this);
+    }
+//    else {
+//        // 不使用单独的thread来从视频设备当中读取视频流数据
+//        // 而是通过使用UsageEnvironment当中的TaskScheduler来协调规划
+//        // 读取视频流的任务
+//        envir().taskScheduler()
+//                .turnOnBackgroundReadHandling(fd,
+//                                              V4L2DeviceSource::incomingPacketHandlerStub,
+//                                              this);
+//    }
 }
 
 

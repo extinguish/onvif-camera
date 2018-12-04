@@ -146,6 +146,7 @@ protected:
     pthread_mutex_t m_mutex;
     std::string m_auxLine;
 
+    bool useThread;
     ThreadQueue<RawH264FrameData *> *raw_h264_frame_queue;
 };
 

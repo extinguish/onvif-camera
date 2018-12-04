@@ -6,12 +6,12 @@
 #define NETWORKSERVICE_IH264DATALISTENER_H
 
 #include <stdio.h>
-#include "../simple_utils.h"
+#include "../../simple_utils.h"
 #include "Mutex.h"
-#include "../ThreadQueue.hpp"
+#include "../../ThreadQueue.hpp"
 #include "IKyEncoderControllerCallback.h"
-#include "../share_buffer_rtsp_server/include/IPCameraRtspServer.h"
-#include "../RawFrame.hpp"
+#include "../../share_buffer_rtsp_server/include/IPCameraRtspServer.h"
+#include "../../RawFrame.hpp"
 
 #define BYTE uint8_t
 

@@ -3,7 +3,7 @@
 
 #include <string>
 #include "simple_utils.h"
-#include "h264_handle/KyEncoder.h"
+#include "share_buffer_rtsp_server/h264_handle/include/KyEncoder.h"
 
 #define TAG_C "rtmp_service"
 

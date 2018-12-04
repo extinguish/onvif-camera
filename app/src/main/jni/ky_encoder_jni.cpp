@@ -6,8 +6,8 @@
 #include <stdlib.h>
 
 #include "simple_utils.h"
-#include "h264_handle/KyEncoder.h"
-#include "h264_handle/IH264DataListener.h"
+#include "share_buffer_rtsp_server/h264_handle/include/KyEncoder.h"
+#include "share_buffer_rtsp_server/h264_handle/include/IH264DataListener.h"
 #include "SimpleController.hpp"
 
 #define TAG_J "rtsp_service"
@@ -16,7 +16,7 @@
 
 #define ENCODE_WIDTH 960
 #define ENCODE_HEIGHT 480
-#define RTMP_CONNECT_TIMEOUT 5000
+#define RTSP_CONNECT_TIMEOUT 5000
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,7 +26,7 @@ static jlong native_create(JNIEnv *env, jobject thiz) {
     LOGD_T(TAG_J, "create the encode ");
     SimpleController *controller = new SimpleController();
     controller->init(ENCODE_WIDTH, ENCODE_HEIGHT,
-                     RTMP_CONNECT_TIMEOUT);
+                     RTSP_CONNECT_TIMEOUT);
     jlong controller_address = reinterpret_cast<jlong>(controller);
 
     return controller_address;
@@ -37,7 +37,7 @@ static jboolean native_prepare(JNIEnv *env, jobject thiz, jlong objAddress, jobj
     CodecParams codecParams;
     memset(&codecParams, 0, sizeof(CodecParams));
     jclass encodeParamJavaCls = env->FindClass(
-            "com/adasplus/rtmp/encoder/KyEncoderWrapper$EncodeParam");
+            "com/adasplus/ipcamera/encoder/KyEncoderWrapper$EncodeParam");
     jfieldID widthFieldId = env->GetFieldID(encodeParamJavaCls, "width", "I");
     codecParams.width = (uint16_t) env->GetIntField(encodeParams, widthFieldId);
     jfieldID heightFieldId = env->GetFieldID(encodeParamJavaCls, "height", "I");

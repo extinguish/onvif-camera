@@ -1,6 +1,6 @@
 #include "SimpleController.hpp"
 #include "share_buffer_rtsp_server/include/IPCameraRtspServer.h"
-#include "h264_handle/IH264DataListener.h"
+#include "share_buffer_rtsp_server/h264_handle/include/IH264DataListener.h"
 
 /**
  * TODO: 理论上，这里的encode_width, encode_height和connect_time_out的值需要传递给RtspServer

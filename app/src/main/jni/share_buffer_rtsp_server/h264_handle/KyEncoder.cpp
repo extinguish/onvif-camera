@@ -2,8 +2,8 @@
 // Created by fengyin on 17-11-10.
 //
 
-#include "KyEncoder.h"
-#include "AdasUtil.h"
+#include "include/KyEncoder.h"
+#include "include/AdasUtil.h"
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>

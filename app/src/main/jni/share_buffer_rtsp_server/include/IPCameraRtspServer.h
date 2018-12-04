@@ -29,8 +29,6 @@
 #include "UnicastServerMediaSubsession.h"
 #include "HTTPServer.h"
 
-#define LOG_TAG "ipcamera_rtsp_server"
-
 class IPCameraRtspServer {
 
 public:
@@ -76,7 +74,7 @@ private:
     FramedSource *videoSource;
 
     // 对于AdasIPCamera,我们从ShareBuffer当中读取出视频数据之后，直接就编码成h264格式，这是固定的
-    const std::string rtpFormat = "video/H264";
+    const std::string rtpFormat{"video/H264"};
 
     const unsigned short rtspPort;
     const unsigned short rtspOverHttpPort;

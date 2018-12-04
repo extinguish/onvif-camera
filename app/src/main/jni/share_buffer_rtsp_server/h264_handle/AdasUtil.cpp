@@ -2,9 +2,9 @@
 // Created by fengyin on 17-5-22.
 //
 
-#include "AdasUtil.h"
+#include "include/AdasUtil.h"
 
-#include "../libyuv/include/libyuv.h"
+#include "../../libyuv/include/libyuv.h"
 
 #include <fcntl.h>
 #include <unistd.h>

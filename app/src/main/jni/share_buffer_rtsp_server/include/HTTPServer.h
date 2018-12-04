@@ -13,8 +13,14 @@
 #ifndef HTTP_SERVER
 #define HTTP_SERVER
 
+// project
 #include "../../live_server/liveMedia/include/RTSPServer.hh"
 #include "../../live_server/liveMedia/include/TCPStreamSink.hh"
+
+#include "../../simple_utils.h"
+
+#define LOG_TAG "http_server"
+
 #include <string>
 
 // ---------------------------------------------------------
@@ -67,9 +73,12 @@ public:
                                  unsigned reclamationTestSeconds, unsigned int hlsSegment) {
         HTTPServer *httpServer = NULL;
         int ourSocket = setUpOurSocket(env, rtspPort);
+        LOGI_T(LOG_TAG, "our socket are %d", ourSocket);
         if (ourSocket != -1) {
             httpServer = new HTTPServer(env, ourSocket, rtspPort, authDatabase,
                                         reclamationTestSeconds, hlsSegment);
+        } else {
+            LOGERR(LOG_TAG, "fail to setup the RTSP socket");
         }
         return httpServer;
     }

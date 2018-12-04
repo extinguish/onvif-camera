@@ -6,14 +6,19 @@ $(info "the rtsp server work path are " $(SHARE_BUF_RTSP_SERVER_TOP_PATH))
 
 LOCAL_MODULE := ipcamera_rtsp_server
 
-LOCAL_SRC_FILES := $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/HTTPServer.cpp \
+LOCAL_SRC_FILES := $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/h264_handle/AdasUtil.cpp \
+                   $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/h264_handle/H264DataListenerImpl.cpp \
+                   $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/h264_handle/KyEncoder.cpp \
+                   $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/HTTPServer.cpp \
                    $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/DeviceSource.cpp \
                    $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/H264_V4l2DeviceSource.cpp \
                    $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/ServerMediaSubsession.cpp \
                    $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/IPCameraRtspServer.cpp \
                    $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/UnicastServerMediaSubsession.cpp \
 
-LOCAL_C_INCLUDES := $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/../live_server/UsageEnvironment/include \
+LOCAL_C_INCLUDES := $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/../libyuv/include \
+                    $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/h264_handle/include \
+                    $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/../live_server/UsageEnvironment/include \
                     $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/../live_server/BasicUsageEnvironment/include \
                     $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/../live_server/groupsock/include \
                     $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/../live_server/liveMedia/include \
@@ -24,9 +29,9 @@ LOCAL_C_INCLUDES := $(SHARE_BUF_RTSP_SERVER_TOP_PATH)/../live_server/UsageEnviro
 
 
 # 我们需要依赖live555 media_server库
-LOCAL_SHARED_LIBRARIES := media_server
+LOCAL_SHARED_LIBRARIES := media_server libyuv
 
-LOCAL_LDLIBS := -llog
+LOCAL_LDLIBS := -llog -lmediandk -lz
 
 include $(BUILD_SHARED_LIBRARY)
 

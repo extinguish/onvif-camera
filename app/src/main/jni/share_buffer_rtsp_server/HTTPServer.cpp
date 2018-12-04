@@ -18,7 +18,7 @@
 
 #include "../live_server/liveMedia/include/RTSPServer.hh"
 #include "../live_server/liveMedia/include/RTSPCommon.hh"
-#include "../time.h"
+#include <time.h>
 #include "../live_server/liveMedia/include/ByteStreamMemoryBufferSource.hh"
 
 #include "include/HTTPServer.h"

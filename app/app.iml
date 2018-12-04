@@ -33,7 +33,6 @@
     <exclude-output />
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/src/main/jni" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/src/main/jni/h264_handle" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/jni/libyuv/source" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/jni/live_server/BasicUsageEnvironment" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/jni/live_server/UsageEnvironment" isTestSource="false" />
@@ -41,6 +40,7 @@
       <sourceFolder url="file://$MODULE_DIR$/src/main/jni/live_server/liveMedia" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/jni/live_server/mediaServer" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/jni/share_buffer_rtsp_server" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/main/jni/share_buffer_rtsp_server/h264_handle" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/build/generated/source/apt/debug" isTestSource="false" generated="true" />
       <sourceFolder url="file://$MODULE_DIR$/build/generated/not_namespaced_r_class_sources/debug/processDebugResources/r" isTestSource="false" generated="true" />
       <sourceFolder url="file://$MODULE_DIR$/build/generated/source/aidl/debug" isTestSource="false" generated="true" />

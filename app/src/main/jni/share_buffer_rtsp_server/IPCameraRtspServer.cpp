@@ -38,7 +38,12 @@ int IPCameraRtspServer::addSession(const std::string &sessionName,
 
     int nbSubsession = 0;
     if (!subSession.empty()) {
-        UsageEnvironment &env(this->rtspServer->envir());
+        if (rtspServer == nullptr || rtspServer == NULL) {
+            LOGERR(LOG_TAG, "the RTSP server are null!!!");
+            return -1;
+        }
+        UsageEnvironment &env(rtspServer->envir());
+
         ServerMediaSession *sms = ServerMediaSession::createNew(env, sessionName.c_str());
         if (sms != NULL) {
             for (std::list<ServerMediaSubsession *>::const_iterator subIt = subSession.begin();
@@ -68,21 +73,33 @@ IPCameraRtspServer::createFramedSource(int queueSize, bool useThread,
     FramedSource *source = NULL;
     // 采用h264进行编码
     source = H264_V4L2DeviceSource::createNew(*env,
-                                              queueSize,
+                                              static_cast<unsigned int>(queueSize),
                                               useThread,
                                               repeatConfig);
+    if (source == nullptr) {
+        LOGERR(LOG_TAG, "Fail to create the FramedSource");
+    }
     return source;
 }
 
 RTSPServer *
 IPCameraRtspServer::createRtspServer() {
     Port port(rtspPort);
+    LOGD_T(LOG_TAG, "the rtsp por are %d", rtspPort);
+    if (env == nullptr) {
+        LOGERR(LOG_TAG, "the usage environment are null");
+        return nullptr;
+    } else {
+        LOGI_T(LOG_TAG, "the usage environment are valid");
+    }
     RTSPServer *rtspServer = HTTPServer::createNew(*env, port, NULL, this->timeOut,
                                                    this->hslSegment);
-    if (rtspServer != NULL) {
+    if (rtspServer != nullptr) {
         if (rtspOverHttpPort) {
             rtspServer->setUpTunnelingOverHTTP(rtspOverHttpPort);
         }
+    } else {
+        LOGERR(LOG_TAG, "fail to create the rtsp server");
     }
     return rtspServer;
 }
@@ -121,6 +138,7 @@ void IPCameraRtspServer::startServer() {
 }
 
 void IPCameraRtspServer::stopServer() {
+    LOGI_T(LOG_TAG, "stop the IPCamera rtsp server");
     // FIXME: signal函数的实现有问题
     // signal(SIGINT, sigHandler);
     // this->env->taskScheduler().doEventLoop(&quit);
@@ -130,6 +148,10 @@ void IPCameraRtspServer::stopServer() {
 }
 
 long IPCameraRtspServer::getFramedSourceObjAddress() {
+    if (videoSource == nullptr || videoSource == NULL) {
+        LOGERR(LOG_TAG, "the FramedSource are null");
+        return -1;
+    }
     return reinterpret_cast<long>(videoSource);
 }
 
