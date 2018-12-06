@@ -36,21 +36,6 @@ public class KyEncoderWrapper {
         return encodeFrame(mNativeCodecObjAddress, frame, frameWidth, frameHeight);
     }
 
-    public boolean stop() {
-        checkNativeCodecObjAddressValid(mNativeCodecObjAddress);
-        return stop(mNativeCodecObjAddress);
-    }
-
-    public boolean destroy() {
-        checkNativeCodecObjAddressValid(mNativeCodecObjAddress);
-        return destroy(mNativeCodecObjAddress);
-    }
-
-    public boolean release() {
-        checkNativeCodecObjAddressValid(mNativeCodecObjAddress);
-        return release(mNativeCodecObjAddress);
-    }
-
     private void checkNativeCodecObjAddressValid(long objAddress) {
         if (objAddress == -1) {
             throw new IllegalStateException("native codec object address are invalid");
@@ -74,21 +59,6 @@ public class KyEncoderWrapper {
     public native boolean start(long objAddress);
 
     public native boolean encodeFrame(long objAddress, byte[] frame, int length, int flag);
-
-    /**
-     * @param objAddress 参考{@link #start()}
-     */
-    public native boolean stop(long objAddress);
-
-    /**
-     * @param objAddress 参考{@link #stop()}
-     */
-    public native boolean release(long objAddress);
-
-    /**
-     * @param objAddress 参考{@link #release(long)}
-     */
-    public native boolean destroy(long objAddress);
 
     public static final class EncodeParam {
         private final int width;

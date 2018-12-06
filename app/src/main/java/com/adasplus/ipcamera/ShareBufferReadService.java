@@ -150,19 +150,6 @@ public class ShareBufferReadService extends Service {
                 if (DEBUG) {
                     Log.e(TAG, "prepare front camera encoder failed");
                 }
-                return;
-            }
-            boolean startResult = frontCameraKyEncoder.start();
-            if (!startResult) {
-                if (DEBUG) {
-                    Log.e(TAG, "fail to start the front camera encoder, and try again 1 seconds later");
-                }
-            } else {
-                if (DEBUG) {
-                    Log.d(TAG, "get the front camera KyEncoder instance success, and cancel the timer");
-                }
-                // 获取encoder成功,开始编码
-                frontCameraReadingHandler.sendEmptyMessage(MSG_READ_FRONT_STREAM_DATA);
             }
         } else {
             if (DEBUG) {
@@ -288,33 +275,10 @@ public class ShareBufferReadService extends Service {
             // frontCameraReadingHandler.removeMessages(MSG_READ_FRONT_STREAM_DATA);
             frontCameraReadingHandler.removeCallbacksAndMessages(null);
         }
-        stopEncoding(frontCameraKyEncoder);
         if (frontCameraKyEncoder != null) {
             frontCameraKyEncoder = null;
         }
         unbindAdasService();
-    }
-
-    private void stopEncoding(KyEncoderWrapper kyEncoderWrapper) {
-        if (kyEncoderWrapper != null) {
-            boolean stopResult = kyEncoderWrapper.stop();
-            if (!stopResult) {
-                Log.e(TAG, "fail to stop the encoder");
-            }
-            boolean releaseResult = kyEncoderWrapper.release();
-            if (!releaseResult) {
-                Log.e(TAG, "fail to release the encoder");
-            }
-            boolean destroyResult = kyEncoderWrapper.destroy();
-            if (!destroyResult) {
-                Log.e(TAG, "fail to destroy the encoder");
-            }
-        } else {
-            // 可能是用户没有开始推流,就直接点击关闭推流了.对于这种情况，不做处理
-            if (DEBUG) {
-                Log.d(TAG, "the KyEncoder are null, do nothing");
-            }
-        }
     }
 
     private void unbindAdasService() {
