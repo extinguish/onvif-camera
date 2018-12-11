@@ -7,6 +7,7 @@ app/app.iml
 app/.externalNativeBuild/
 app/src/main/libs/
 app/src/main/obj/
+app/libs/
 build/
 ipcamerafinder/ipcamerafinder.iml
 app/app.iml

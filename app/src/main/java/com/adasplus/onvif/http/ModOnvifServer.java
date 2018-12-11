@@ -5,8 +5,6 @@ import android.content.Context;
 import android.os.Build;
 import android.util.Log;
 
-import com.adasplus.onvif.ONVIFPacketHandler;
-import com.adasplus.onvif.ONVIFReqPacketHeader;
 import com.adasplus.onvif.Utilities;
 
 import org.apache.http.HttpEntity;
@@ -24,7 +22,6 @@ import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.protocol.HttpRequestHandler;
 import org.apache.http.util.EntityUtils;
-import org.xml.sax.SAXException;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -32,14 +29,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.URLDecoder;
-import java.sql.Time;
 import java.util.Calendar;
 import java.util.Locale;
 import java.util.TimeZone;
-
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
 
 /**
  * 同{@link ModAssetServer}的工作方式一样。
@@ -76,9 +68,6 @@ public class ModOnvifServer implements HttpRequestHandler {
         mContext = server.getContext();
         mRtspServerPort = DEFAULT_RTSP_PORT;
     }
-
-    private static final String REQUEST_DEVICE_SERVICE = "/onvif/device_service";
-    private static final String REQUEST_ = "";
 
     @Override
     public void handle(HttpRequest httpRequest, HttpResponse httpResponse, HttpContext httpContext) throws HttpException, IOException {
@@ -125,38 +114,7 @@ public class ModOnvifServer implements HttpRequestHandler {
                 body = new InputStreamEntity(servicesResponseInputStream, responseContentByteArr.length);
             } else if (requestContent.contains("GetCapabilities")) {
                 Log.d(TAG, "Handle the response of GetCapabilities request");
-                // we need parse the request, and parse out the required field we need
-                SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
-                SAXParser saxParser = null;
-                try {
-                    saxParser = saxParserFactory.newSAXParser();
-                } catch (ParserConfigurationException e) {
-                    Log.e(TAG, "SAX Parse Configuration Exception happened", e);
-                } catch (SAXException e) {
-                    Log.e(TAG, "SAX Exception happened", e);
-                }
-                if (saxParser == null) {
-                    Log.e(TAG, "fail to get the SAX Parser, neglect this discovery packet");
-                    return;
-                }
-
-                ONVIFPacketHandler handler = new ONVIFPacketHandler();
-                try {
-                    saxParser.parse(new ByteArrayInputStream(requestContent.getBytes()), handler);
-                } catch (SAXException e) {
-                    Log.e(TAG, "SAXException happened while processing the received message", e);
-                } catch (IOException e) {
-                    Log.e(TAG, "IOException happened while processing the received message", e);
-                }
-                ONVIFReqPacketHeader reqHeader = handler.getReqHeader();
-
-                String userName = reqHeader.getUserName();
-                String passwordDigest = reqHeader.getUserPsw();
-                String nonce = reqHeader.getCapabilitiesNonce();
-                String createdTime = year + "-" + month + "-" + day + "T" + hour + ":" + minutes + ":" + seconds + "Z";
-
-                String getCapabilitiesResponse = constructOnvifGetCapabilitiesResponse(userName,
-                        passwordDigest, nonce, createdTime, serverIp);
+                String getCapabilitiesResponse = constructOnvifGetCapabilitiesResponse(serverIp);
                 byte[] responseContentByteArr = getCapabilitiesResponse.getBytes("UTF-8");
                 InputStream servicesResponseInputStream = new ByteArrayInputStream(responseContentByteArr);
                 body = new InputStreamEntity(servicesResponseInputStream, responseContentByteArr.length);
@@ -526,59 +484,78 @@ public class ModOnvifServer implements HttpRequestHandler {
     /**
      * construct the GetCapabilities response
      *
-     * @param userName        eg. admin
-     * @param passwordDigest  eg. 5y9Zcgk2iMChJdQw/yOKEtqsI/0=
-     * @param nonce           eg. Nzg1MDE2OTYz
-     * @param createdTime     eg. 2014-12-24T16:20:37.475Z
      * @param serverIpAddress eg. 192.168.100.110
      * @return the GetCapabilitiesResponse
      */
-    private String constructOnvifGetCapabilitiesResponse(String userName, String passwordDigest, String nonce,
-                                                         String createdTime, String serverIpAddress) {
-        Log.d(TAG, "respond the GetCapabilities request with userName " + userName + ", password digest " + passwordDigest
-                + ", nonce " + nonce + ", created time " + createdTime + ", server ip are " + serverIpAddress);
+    private String constructOnvifGetCapabilitiesResponse(String serverIpAddress) {
+        Log.d(TAG, "respond the GetCapabilities request with server ip address of " + serverIpAddress);
 
         String response = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:SOAP-ENC=\"http://www.w3.org/2003/05/soap-encoding\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:chan=\"http://schemas.microsoft.com/ws/2005/02/duplex\" xmlns:wsa5=\"http://www.w3.org/2005/08/addressing\" xmlns:c14n=\"http://www.w3.org/2001/10/xml-exc-c14n#\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\" xmlns:xenc=\"http://www.w3.org/2001/04/xmlenc#\" xmlns:wsc=\"http://schemas.xmlsoap.org/ws/2005/02/sc\" xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\" xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:xmime5=\"http://www.w3.org/2005/05/xmlmime\" xmlns:xmime=\"http://tempuri.org/xmime.xsd\" xmlns:xop=\"http://www.w3.org/2004/08/xop/include\" xmlns:tt=\"http://www.onvif.org/ver10/schema\" xmlns:wsrfbf=\"http://docs.oasis-open.org/wsrf/bf-2\" xmlns:wstop=\"http://docs.oasis-open.org/wsn/t-1\" xmlns:wsrfr=\"http://docs.oasis-open.org/wsrf/r-2\" xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\" xmlns:tev=\"http://www.onvif.org/ver10/events/wsdl\" xmlns:wsnt=\"http://docs.oasis-open.org/wsn/b-2\" xmlns:tptz=\"http://www.onvif.org/ver20/ptz/wsdl\" xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\" xmlns:timg=\"http://www.onvif.org/ver20/imaging/wsdl\" xmlns:tmd=\"http://www.onvif.org/ver10/deviceIO/wsdl\" xmlns:tns1=\"http://www.onvif.org/ver10/topics\" xmlns:ter=\"http://www.onvif.org/ver10/error\" xmlns:tnsaxis=\"http://www.axis.com/2009/event/topics\">\n" +
-                "    <SOAP-ENV:Header>\n" +
-                "        <wsse:Security>\n" +
-                "            <wsse:UsernameToken>\n" +
-                "                <wsse:Username>" + userName + "</wsse:Username>\n" +
-                "                <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" +
-                "                <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" +
-                "                <wsu:Created>" + createdTime + "</wsu:Created>\n" +
-                "            </wsse:UsernameToken>\n" +
-                "        </wsse:Security>\n" +
-                "    </SOAP-ENV:Header>\n" +
-                "    <SOAP-ENV:Body>\n" +
+                "<env:Envelope xmlns:d=\"http://schemas.xmlsoap.org/ws/2005/04/discovery\" xmlns:dn=\"http://www.onvif.org/ver10/network/wsdl\" xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:hikwsd=\"http://www.onvifext.com/onvif/ext/ver10/wsdl\" xmlns:hikxsd=\"http://www.onvifext.com/onvif/ext/ver10/schema\" xmlns:http=\"http://schemas.xmlsoap.org/wsdl/http\" xmlns:soapenc=\"http://www.w3.org/2003/05/soap-encoding\" xmlns:tan=\"http://www.onvif.org/ver20/analytics/wsdl\" xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\" xmlns:ter=\"http://www.onvif.org/ver10/error\" xmlns:tev=\"http://www.onvif.org/ver10/events/wsdl\" xmlns:timg=\"http://www.onvif.org/ver20/imaging/wsdl\" xmlns:tmd=\"http://www.onvif.org/ver10/deviceIO/wsdl\" xmlns:tns1=\"http://www.onvif.org/ver10/topics\" xmlns:tnshik=\"http://www.hikvision.com/2011/event/topics\" xmlns:tptz=\"http://www.onvif.org/ver20/ptz/wsdl\" xmlns:trc=\"http://www.onvif.org/ver10/recording/wsdl\" xmlns:trp=\"http://www.onvif.org/ver10/replay/wsdl\" xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\" xmlns:tse=\"http://www.onvif.org/ver10/search/wsdl\" xmlns:tst=\"http://www.onvif.org/ver10/storage/wsdl\" xmlns:tt=\"http://www.onvif.org/ver10/schema\" xmlns:wsa=\"http://www.w3.org/2005/08/addressing\" xmlns:wsadis=\"http://schemas.xmlsoap.org/ws/2004/08/addressing\" xmlns:wsaw=\"http://www.w3.org/2006/05/addressing/wsdl\" xmlns:wsdl=\"http://schemas.xmlsoap.org/wsdl\" xmlns:wsnt=\"http://docs.oasis-open.org/wsn/b-2\" xmlns:wsntw=\"http://docs.oasis-open.org/wsn/bw-2\" xmlns:wsoap12=\"http://schemas.xmlsoap.org/wsdl/soap12\" xmlns:wsrf-bf=\"http://docs.oasis-open.org/wsrf/bf-2\" xmlns:wsrf-r=\"http://docs.oasis-open.org/wsrf/r-2\" xmlns:wsrf-rw=\"http://docs.oasis-open.org/wsrf/rw-2\" xmlns:wstop=\"http://docs.oasis-open.org/wsn/t-1\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n" +
+                "    <env:Body>\n" +
                 "        <tds:GetCapabilitiesResponse>\n" +
                 "            <tds:Capabilities>\n" +
+                "                <tt:Analytics>\n" +
+                "                    <tt:XAddr>http://" + serverIpAddress + "/onvif/Analytics</tt:XAddr>\n" +
+                "                    <tt:RuleSupport>true</tt:RuleSupport>\n" +
+                "                    <tt:AnalyticsModuleSupport>true</tt:AnalyticsModuleSupport>\n" +
+                "                </tt:Analytics>\n" +
                 "                <tt:Device>\n" +
-                "                    <tt:XAddr>http://" + serverIpAddress + "/onvif/services</tt:XAddr>\n" +
+                "                    <tt:XAddr>http://" + serverIpAddress + "/onvif/device_service</tt:XAddr>\n" +
                 "                    <tt:Network>\n" +
-                "                        <tt:IPFilter>false</tt:IPFilter>\n" +
+                "                        <tt:IPFilter>true</tt:IPFilter>\n" +
                 "                        <tt:ZeroConfiguration>true</tt:ZeroConfiguration>\n" +
                 "                        <tt:IPVersion6>false</tt:IPVersion6>\n" +
-                "                        <tt:DynDNS>false</tt:DynDNS>\n" +
+                "                        <tt:DynDNS>true</tt:DynDNS>\n" +
+                "                        <tt:Extension>\n" +
+                "                            <tt:Dot11Configuration>false</tt:Dot11Configuration>\n" +
+                "                            <tt:Extension>\n" +
+                "                                <tt:DHCPv6>true</tt:DHCPv6>\n" +
+                "                                <tt:Dot1XConfigurations>0</tt:Dot1XConfigurations>\n" +
+                "                            </tt:Extension>\n" +
+                "                        </tt:Extension>\n" +
                 "                    </tt:Network>\n" +
                 "                    <tt:System>\n" +
                 "                        <tt:DiscoveryResolve>false</tt:DiscoveryResolve>\n" +
-                "                        <tt:DiscoveryBye>false</tt:DiscoveryBye>\n" +
-                "                        <tt:RemoteDiscovery>false</tt:RemoteDiscovery>\n" +
-                "                        <tt:SystemBackup>false</tt:SystemBackup>\n" +
-                "                        <tt:SystemLogging>false</tt:SystemLogging>\n" +
-                "                        <tt:FirmwareUpgrade>false</tt:FirmwareUpgrade>\n" +
+                "                        <tt:DiscoveryBye>true</tt:DiscoveryBye>\n" +
+                "                        <tt:RemoteDiscovery>true</tt:RemoteDiscovery>\n" +
+                "                        <tt:SystemBackup>true</tt:SystemBackup>\n" +
+                "                        <tt:SystemLogging>true</tt:SystemLogging>\n" +
+                "                        <tt:FirmwareUpgrade>true</tt:FirmwareUpgrade>\n" +
                 "                        <tt:SupportedVersions>\n" +
                 "                            <tt:Major>2</tt:Major>\n" +
                 "                            <tt:Minor>40</tt:Minor>\n" +
                 "                        </tt:SupportedVersions>\n" +
+                "                        <tt:SupportedVersions>\n" +
+                "                            <tt:Major>2</tt:Major>\n" +
+                "                            <tt:Minor>20</tt:Minor>\n" +
+                "                        </tt:SupportedVersions>\n" +
+                "                        <tt:SupportedVersions>\n" +
+                "                            <tt:Major>2</tt:Major>\n" +
+                "                            <tt:Minor>10</tt:Minor>\n" +
+                "                        </tt:SupportedVersions>\n" +
+                "                        <tt:SupportedVersions>\n" +
+                "                            <tt:Major>2</tt:Major>\n" +
+                "                            <tt:Minor>0</tt:Minor>\n" +
+                "                        </tt:SupportedVersions>\n" +
+                "                        <tt:Extension>\n" +
+                "                            <tt:HttpFirmwareUpgrade>false</tt:HttpFirmwareUpgrade>\n" +
+                "                            <tt:HttpSystemBackup>true</tt:HttpSystemBackup>\n" +
+                "                            <tt:HttpSystemLogging>false</tt:HttpSystemLogging>\n" +
+                "                            <tt:HttpSupportInformation>false</tt:HttpSupportInformation>\n" +
+                "                        </tt:Extension>\n" +
                 "                    </tt:System>\n" +
                 "                    <tt:IO>\n" +
                 "                        <tt:InputConnectors>1</tt:InputConnectors>\n" +
                 "                        <tt:RelayOutputs>1</tt:RelayOutputs>\n" +
+                "                        <tt:Extension>\n" +
+                "                            <tt:Auxiliary>false</tt:Auxiliary>\n" +
+                "                            <tt:AuxiliaryCommands>nothing</tt:AuxiliaryCommands>\n" +
+                "                            <tt:Extension />\n" +
+                "                        </tt:Extension>\n" +
                 "                    </tt:IO>\n" +
                 "                    <tt:Security>\n" +
-                "                        <tt:TLS1.1>true</tt:TLS1.1>\n" +
+                "                        <tt:TLS1.1>false</tt:TLS1.1>\n" +
                 "                        <tt:TLS1.2>false</tt:TLS1.2>\n" +
                 "                        <tt:OnboardKeyGeneration>false</tt:OnboardKeyGeneration>\n" +
                 "                        <tt:AccessPolicyConfig>false</tt:AccessPolicyConfig>\n" +
@@ -586,42 +563,75 @@ public class ModOnvifServer implements HttpRequestHandler {
                 "                        <tt:SAMLToken>false</tt:SAMLToken>\n" +
                 "                        <tt:KerberosToken>false</tt:KerberosToken>\n" +
                 "                        <tt:RELToken>false</tt:RELToken>\n" +
+                "                        <tt:Extension>\n" +
+                "                            <tt:TLS1.0>false</tt:TLS1.0>\n" +
+                "                            <tt:Extension>\n" +
+                "                                <tt:Dot1X>false</tt:Dot1X>\n" +
+                "                                <tt:SupportedEAPMethod>0</tt:SupportedEAPMethod>\n" +
+                "                                <tt:RemoteUserHandling>false</tt:RemoteUserHandling>\n" +
+                "                            </tt:Extension>\n" +
+                "                        </tt:Extension>\n" +
                 "                    </tt:Security>\n" +
                 "                </tt:Device>\n" +
                 "                <tt:Events>\n" +
-                "                    <tt:XAddr>http://" + serverIpAddress + "/onvif/services</tt:XAddr>\n" +
-                "                    <tt:WSSubscriptionPolicySupport>false</tt:WSSubscriptionPolicySupport>\n" +
-                "                    <tt:WSPullPointSupport>false</tt:WSPullPointSupport>\n" +
-                "                    <tt:WSPausableSubscriptionManagerInterfaceSupport>false</tt:WSPausableSubscriptionManagerInterfaceSupport>\n" +
+                "                    <tt:XAddr>http://" + serverIpAddress + "/onvif/Events</tt:XAddr>\n" +
+                "                    <tt:WSSubscriptionPolicySupport>true</tt:WSSubscriptionPolicySupport>\n" +
+                "                    <tt:WSPullPointSupport>true</tt:WSPullPointSupport>\n" +
+                "                    <tt:WSPausableSubscriptionManagerInterfaceSupport>false\n" +
+                "                    </tt:WSPausableSubscriptionManagerInterfaceSupport>\n" +
                 "                </tt:Events>\n" +
                 "                <tt:Imaging>\n" +
-                "                    <tt:XAddr>http://" + serverIpAddress + "/onvif/services</tt:XAddr>\n" +
+                "                    <tt:XAddr>http://" + serverIpAddress + "/onvif/Imaging</tt:XAddr>\n" +
                 "                </tt:Imaging>\n" +
                 "                <tt:Media>\n" +
-                "                    <tt:XAddr>http://" + serverIpAddress + "/onvif/services</tt:XAddr>\n" +
+                "                    <tt:XAddr>http://" + serverIpAddress + "/onvif/Media</tt:XAddr>\n" +
                 "                    <tt:StreamingCapabilities>\n" +
-                "                        <tt:RTPMulticast>false</tt:RTPMulticast>\n" +
+                "                        <tt:RTPMulticast>true</tt:RTPMulticast>\n" +
                 "                        <tt:RTP_TCP>true</tt:RTP_TCP>\n" +
                 "                        <tt:RTP_RTSP_TCP>true</tt:RTP_RTSP_TCP>\n" +
                 "                    </tt:StreamingCapabilities>\n" +
+                "                    <tt:Extension>\n" +
+                "                        <tt:ProfileCapabilities>\n" +
+                "                            <tt:MaximumNumberOfProfiles>10</tt:MaximumNumberOfProfiles>\n" +
+                "                        </tt:ProfileCapabilities>\n" +
+                "                    </tt:Extension>\n" +
                 "                </tt:Media>\n" +
-                "                <tt:PTZ>\n" +
-                "                    <tt:XAddr>http://" + serverIpAddress + "/onvif/services</tt:XAddr>\n" +
-                "                </tt:PTZ>\n" +
                 "                <tt:Extension>\n" +
+                "                    <hikxsd:hikCapabilities>\n" +
+                "                        <hikxsd:XAddr>http://" + serverIpAddress + "/onvif/hik_ext</hikxsd:XAddr>\n" +
+                "                        <hikxsd:IOInputSupport>true</hikxsd:IOInputSupport>\n" +
+                "                        <hikxsd:PrivacyMaskSupport>true</hikxsd:PrivacyMaskSupport>\n" +
+                "                        <hikxsd:PTZ3DZoomSupport>false</hikxsd:PTZ3DZoomSupport>\n" +
+                "                        <hikxsd:PTZPatternSupport>true</hikxsd:PTZPatternSupport>\n" +
+                "                    </hikxsd:hikCapabilities>\n" +
                 "                    <tt:DeviceIO>\n" +
-                "                        <tt:XAddr>http://" + serverIpAddress + "/onvif/services</tt:XAddr>\n" +
+                "                        <tt:XAddr>http://" + serverIpAddress + "/onvif/DeviceIO</tt:XAddr>\n" +
                 "                        <tt:VideoSources>1</tt:VideoSources>\n" +
                 "                        <tt:VideoOutputs>0</tt:VideoOutputs>\n" +
                 "                        <tt:AudioSources>1</tt:AudioSources>\n" +
-                "                        <tt:AudioOutputs>0</tt:AudioOutputs>\n" +
+                "                        <tt:AudioOutputs>1</tt:AudioOutputs>\n" +
                 "                        <tt:RelayOutputs>1</tt:RelayOutputs>\n" +
                 "                    </tt:DeviceIO>\n" +
+                "                    <tt:Recording>\n" +
+                "                        <tt:XAddr>http://" + serverIpAddress + "/onvif/Recording</tt:XAddr>\n" +
+                "                        <tt:ReceiverSource>false</tt:ReceiverSource>\n" +
+                "                        <tt:MediaProfileSource>true</tt:MediaProfileSource>\n" +
+                "                        <tt:DynamicRecordings>false</tt:DynamicRecordings>\n" +
+                "                        <tt:DynamicTracks>false</tt:DynamicTracks>\n" +
+                "                        <tt:MaxStringLength>64</tt:MaxStringLength>\n" +
+                "                    </tt:Recording>\n" +
+                "                    <tt:Search>\n" +
+                "                        <tt:XAddr>http://" + serverIpAddress + "/onvif/SearchRecording</tt:XAddr>\n" +
+                "                        <tt:MetadataSearch>false</tt:MetadataSearch>\n" +
+                "                    </tt:Search>\n" +
+                "                    <tt:Replay>\n" +
+                "                        <tt:XAddr>http://" + serverIpAddress + "/onvif/Replay</tt:XAddr>\n" +
+                "                    </tt:Replay>\n" +
                 "                </tt:Extension>\n" +
                 "            </tds:Capabilities>\n" +
                 "        </tds:GetCapabilitiesResponse>\n" +
-                "    </SOAP-ENV:Body>\n" +
-                "</SOAP-ENV:Envelope>";
+                "    </env:Body>\n" +
+                "</env:Envelope>";
 
         return response;
     }
