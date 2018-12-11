@@ -74,7 +74,11 @@
 
 对于`librtmp`来说，我们自己就是主动方，即我们自己就可以进行控制.但是对于目前的实现来说，client才是主动方.
 
+----------------------------------------------------------------------------------------------------
 
+About `pure_onvif_implementation` branch
+
+This branch has nothing to do with rtsp server, but just focused on `ONVIF` protocol implementation.
 
 
 
