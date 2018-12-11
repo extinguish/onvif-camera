@@ -131,7 +131,7 @@ public class ModOnvifServer implements HttpRequestHandler {
                 InputStream streamUriContentInputStream = new ByteArrayInputStream(responseContentByteArr);
                 body = new InputStreamEntity(streamUriContentInputStream, responseContentByteArr.length);
             } else {
-                Log.d(TAG, "not known interface");
+                Log.e(TAG, "not known interface");
                 httpResponse.setStatusCode(HttpStatus.SC_NOT_FOUND);
                 body = new EntityTemplate(new ContentProducer() {
                     public void writeTo(final OutputStream outstream) throws IOException {

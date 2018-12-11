@@ -60,35 +60,8 @@ public class SimpleONVIFManager {
     /**
      * ONVIF协议当中使用的组播地址是固定的,即"239.255.255.250".
      * 是ONVIF协议的内部约定.
-     * <p>
-     * 但是在具体部署到Android设备上的时候，会发现不能直接将一个IPV4格式的地址用作组播地址.
-     * 如果一个设备当中的/proc/net目录下只有igmp6设备的话，那么我们需要使用IPV6的组播地址，才可以
-     * 在设备之间组播状态信息
-     * 如果设备的/proc/net目录下同时具有igmp和igmp6设备的话，那么使用IPV4的组播地址和IPV6的组播
-     * 地址都可以进行组播状态
-     * 我们可以简单的理解为IPV6地址对IPV4进行了兼容.
-     * 例如我们目前使用的华为设备，再其/proc/net目录下就只有igmp6设备，因此他只能使用IPV6格式的地址.
-     * 因此我们需要将"239.255.255.250"转换成对应的IPV6格式.
-     * 当然如果我们可以确保我们的设备上只有igmp时，我们就需要将地址设定为"239.255.255.250".(视具体的
-     * 运行情况来决定).
-     * <p>
-     * 以下的地址是"239.255.255.250"对应的IPV6的格式.
      */
-    // TODO: 这里的地址是错误的，但是目前我们只能用这个地址测试，因为下面的IPV6版本的地址有问题(需要换成其他的设备测试一下)
-//     private static final String MULTICAST_HOST_IP = "FF02::1";
-    // 这里比较奇怪，我们将当前设备的组播地址设定为239.255.255.250的话，是可以
-    // 接收到ONVIF Device Test Tool的probe消息的
-    // 但是无法被ONVIF Device Test Tool发现
-    // TODO: 现在无论我们将我们的组播地址设定为什么样子的值，都是无法接收ONVIF Device Test Tool
-    // 的直接发现，除非我们手动的进行probe消息测试
-    // onvif协议当中规定组播探测数据报发送到的目的地址是IPV4地址:239.255.255.250
-    // 所以Android设备如果想要实现onvif,就必须要确保自己可以接收来自239.255.255.250
-    // 地址发送出来的数据报
-    private static final String MULTICAST_HOST_IP = "239.255.255.250"; // 这是正式的ws-service要求的组播地址，如果希望我们的IPCamera被发现，必须将我们的组播地址设置为该值
-//    private static final String MULTICAST_HOST_IP = "0:0:0:0:0:ffff:efff:fffa";
-//    private static final String MULTICAST_HOST_IP = "ff00:0:0:0:0:0:efff:fffa";
-    // 一个普通的合法的IPV4组播地址
-    // private static final String MULTICAST_HOST_IP = "239.1.1.234";
+    private static final String MULTICAST_HOST_IP = "239.255.255.250";
 
     private static final ExecutorService PROBE_PACKET_RECEIVE_EXECUTOR = Executors.newSingleThreadExecutor();
 
@@ -151,9 +124,7 @@ public class SimpleONVIFManager {
                 Log.d(TAG, "fail to held the WifiMulticastLock, then user may fail to receive the Multicast message");
             }
             InetAddress groupAddress = InetAddress.getByName(MULTICAST_HOST_IP);
-//            InetSocketAddress inetSocketAddress = new InetSocketAddress(MULTICAST_HOST_IP, MULTICAST_PORT);
             MulticastSocket multicastSocket = new MulticastSocket(MULTICAST_PORT);
-//            MulticastSocket multicastSocket = new MulticastSocket(inetSocketAddress);
             multicastSocket.setReuseAddress(true);
             multicastSocket.setTimeToLive(255);
             multicastSocket.setSoTimeout(PACKET_SO_TIMEOUT);

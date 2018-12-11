@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="net.majorkernelpanic.spydroid"
-    android:versionCode="1000"
-    android:versionName="10">
+    package="com.adasplus.onvif">
 
     <!--以下只是为了ndk-build使用-->
     <!--如果我们不加以下这句话时，根据ndk-build的版本不同，出现的问题不一样，对于旧版本的ndk-build,如果不加以下这句话，
@@ -15,29 +13,20 @@
         https://android.googlesource.com/platform/ndk/+/master/docs/user/common_problems.md for more information.-->
     <!--<uses-sdk android:minSdkVersion="21" />-->
 
-    <uses-feature android:name="android.hardware.camera" />
-    <uses-feature android:name="android.hardware.camera.autofocus" />
-
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.VIBRATE" />
-
 
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         tools:ignore="GoogleAppIndexingWarning">
-
-        <service android:name="com.adasplus.onvif.http.CustomHttpServer" />
 
         <service
             android:name="com.adasplus.onvif.OnvifService"

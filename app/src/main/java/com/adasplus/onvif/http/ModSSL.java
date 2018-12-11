@@ -218,7 +218,6 @@ public final class ModSSL {
         /**
          * Saves all the certificates generated and their private key in a JKS file
          *
-         * @param file     The file where the certificate will be saved
          * @param password The password to access the private key
          */
         public synchronized void saveToKeyStore(OutputStream os, char[] password)
@@ -233,12 +232,8 @@ public final class ModSSL {
                 KeyStoreException,
                 CertificateException,
                 IOException {
-
             mKeyStore.engineStore(os, password);
-
         }
-
-
     }
 
     /**
@@ -336,9 +331,6 @@ public final class ModSSL {
             X509Certificate certificate = new JcaX509CertificateConverter().setProvider(BC).getCertificate(certificateHolder);
 
             return certificate;
-
         }
-
     }
-
 }

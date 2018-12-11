@@ -12,7 +12,6 @@ import android.os.PowerManager;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
-import com.adasplus.onvif.http.CustomHttpServer;
 import com.adasplus.onvif.http.TinyHttpServer;
 
 import net.majorkernelpanic.spydroid.R;
@@ -22,11 +21,16 @@ import net.majorkernelpanic.spydroid.R;
  * only single entrance of the Onvif service.
  * <p>
  * TODO: in the following implementation, we use the gSoap to re-implement the onvif server.
+ *
+ * When we need to test the onvif function, we need to execute the following command in adb as root user:
+ * "busybox ifconfig eth0 promisc"
+ * and only the upper command execute success, then we can accept the onvif probe packet from the
+ * YiJiaWen device.
  */
 public class OnvifService extends Service {
     private static final String TAG = "OnvifService";
     private PowerManager.WakeLock mWakeLock;
-    private CustomHttpServer mHttpServer;
+    private TinyHttpServer mHttpServer;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -62,7 +66,7 @@ public class OnvifService extends Service {
         mWakeLock = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK, "net.majorkernelpanic.spydroid.wakelock");
 
         // Starts the service of the HTTP server
-        this.startService(new Intent(this, CustomHttpServer.class));
+        this.startService(new Intent(this, TinyHttpServer.class));
 
         // 这里的设计并不是特别好，我们只是创建了一个SimpleONVIFManager实例而已
         // 理论上初始化方法应该同构造函数分开进行
@@ -71,14 +75,14 @@ public class OnvifService extends Service {
         // Lock screen
         mWakeLock.acquire(50 * 60 * 1000L /*50 minutes*/);
 
-        bindService(new Intent(this, CustomHttpServer.class), mHttpServiceConnection, Context.BIND_AUTO_CREATE);
+        bindService(new Intent(this, TinyHttpServer.class), mHttpServiceConnection, Context.BIND_AUTO_CREATE);
     }
 
     private void quitOnvifService() {
         // Removes notification
         // if (mApplication.notificationEnabled) removeNotification();
         // Kills HTTP server
-        this.stopService(new Intent(this, CustomHttpServer.class));
+        this.stopService(new Intent(this, TinyHttpServer.class));
     }
 
     @Nullable
@@ -93,7 +97,7 @@ public class OnvifService extends Service {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             Log.d(TAG, "connect to the Http Service of " + name.flattenToString());
-            mHttpServer = (CustomHttpServer) ((TinyHttpServer.LocalBinder) service).getService();
+            mHttpServer = ((TinyHttpServer.LocalBinder) service).getService();
             mHttpServer.addCallbackListener(mHttpCallbackListener);
             mHttpServer.start();
         }
@@ -104,7 +108,6 @@ public class OnvifService extends Service {
 
         }
     };
-
 
     private TinyHttpServer.CallbackListener mHttpCallbackListener = new TinyHttpServer.CallbackListener() {
 
