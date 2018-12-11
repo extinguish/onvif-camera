@@ -13,7 +13,7 @@
 
 #include <stdlib.h>  // For malloc.
 
-#include "basic_types.h"
+#include "libyuv/basic_types.h"
 
 #ifdef __cplusplus
 namespace libyuv {

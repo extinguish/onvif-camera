@@ -119,10 +119,8 @@ public class SpydroidActivity extends FragmentActivity {
 
         // Starts the service of the HTTP server
         this.startService(new Intent(this, CustomHttpServer.class));
-        if (!SpydroidApplication.USE_NATIVE_RTSP_SERVER) {
-            // Starts the service of the RTSP server
-            this.startService(new Intent(this, CustomRtspServer.class));
-        }
+        // Starts the service of the RTSP server
+        this.startService(new Intent(this, CustomRtspServer.class));
 
         // 开始 ONVIF-HTTP server
         this.startService(new Intent(this, ONVIFHttpServer.class));
@@ -157,9 +155,7 @@ public class SpydroidActivity extends FragmentActivity {
         }
 
         bindService(new Intent(this, CustomHttpServer.class), mHttpServiceConnection, Context.BIND_AUTO_CREATE);
-        if (!SpydroidApplication.USE_NATIVE_RTSP_SERVER) {
-            bindService(new Intent(this, CustomRtspServer.class), mRtspServiceConnection, Context.BIND_AUTO_CREATE);
-        }
+        bindService(new Intent(this, CustomRtspServer.class), mRtspServiceConnection, Context.BIND_AUTO_CREATE);
         // 绑定到ONVIFHttpService
         bindService(new Intent(this, ONVIFHttpServer.class), mONVIFHttpServiceConnection, Context.BIND_AUTO_CREATE);
     }
@@ -196,12 +192,10 @@ public class SpydroidActivity extends FragmentActivity {
             mHttpServer.removeCallbackListener(mHttpCallbackListener);
         }
         unbindService(mHttpServiceConnection);
-        if (!SpydroidApplication.USE_NATIVE_RTSP_SERVER) {
-            if (mRtspServer != null) {
-                mRtspServer.removeCallbackListener(mRtspCallbackListener);
-            }
-            unbindService(mRtspServiceConnection);
+        if (mRtspServer != null) {
+            mRtspServer.removeCallbackListener(mRtspCallbackListener);
         }
+        unbindService(mRtspServiceConnection);
         if (mONVIFServer != null) {
             mONVIFServer.removeCallbackListener(mONVIFCallbackListener);
         }
@@ -249,10 +243,8 @@ public class SpydroidActivity extends FragmentActivity {
         if (mApplication.notificationEnabled) removeNotification();
         // Kills HTTP server
         this.stopService(new Intent(this, CustomHttpServer.class));
-        if (!SpydroidApplication.USE_NATIVE_RTSP_SERVER) {
-            // Kills RTSP server
-            this.stopService(new Intent(this, CustomRtspServer.class));
-        }
+        // Kills RTSP server
+        this.stopService(new Intent(this, CustomRtspServer.class));
         // Kills the ONVIF server
         this.stopService(new Intent(this, ONVIFHttpServer.class));
         // Returns to home menu

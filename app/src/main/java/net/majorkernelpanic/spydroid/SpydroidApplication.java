@@ -64,20 +64,14 @@ public class SpydroidApplication extends android.app.Application {
 
     public final static String TAG = "SpydroidApplication";
 
-    static {
-        // 用于实现IPCamera的so文件
-        System.loadLibrary("adas_ipcamera");
-    }
-
     /**
      * 是否是使用系统当中的ShareBuffer数据.
      * 默认使用的是系统当中的Camera的数据.
      *
      * FIXME: guoshichao 目前这里的实现不太好,是通过一个单独的全局变量来控制. 正常的好的实现,应该是通过两种单独的状态来进行控制.
      */
-    public static final boolean USE_SHARE_BUFFER_DATA = false;
+    public static final boolean USE_SHARE_BUFFER_DATA = true;
 
-    public static final boolean USE_NATIVE_RTSP_SERVER = true;
     /**
      * Default quality of video streams.
      */
@@ -133,12 +127,6 @@ public class SpydroidApplication extends android.app.Application {
                     Log.d(TAG, "get system share buffer memory file descriptor --> " + success);
                 }
             });
-        }
-
-        if (USE_NATIVE_RTSP_SERVER) {
-            // 读取ShareBuffer当中的yuv数据进行编码.
-            Intent shareBufferReadServiceIntent = new Intent(this, ShareBufferReadService.class);
-            startService(shareBufferReadServiceIntent);
         }
 
         SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);

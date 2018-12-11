@@ -11,11 +11,11 @@
 #ifndef INCLUDE_LIBYUV_CONVERT_ARGB_H_  // NOLINT
 #define INCLUDE_LIBYUV_CONVERT_ARGB_H_
 
-#include "basic_types.h"
+#include "libyuv/basic_types.h"
 // TODO(fbarchard): Remove the following headers includes
-#include "convert_from.h"
-#include "planar_functions.h"
-#include "rotate.h"
+#include "libyuv/convert_from.h"
+#include "libyuv/planar_functions.h"
+#include "libyuv/rotate.h"
 
 // TODO(fbarchard): This set of functions should exactly match convert.h
 // TODO(fbarchard): Add tests. Create random content of right size and convert
