@@ -5,15 +5,9 @@ android {
     buildToolsVersion '28.0.3'
 
     defaultConfig {
-        applicationId "com.adasplus.ipcamera"
+        applicationId "com.adasplus.onvif"
         minSdkVersion 21
         targetSdkVersion 21
-
-        externalNativeBuild {
-            ndkBuild {
-                abiFilters 'armeabi-v7a'
-            }
-        }
     }
 
     buildTypes {
@@ -27,16 +21,10 @@ android {
         targetCompatibility = '1.7'
     }
 
-    externalNativeBuild {
-        ndkBuild {
-            path 'src/main/jni/Android.mk'
-        }
-    }
 }
 
 dependencies {
     implementation 'com.android.support:support-v4:21.0.3'
-    implementation files('libs/acra-4.4.0.jar')
     implementation files('libs/sc-light-jdk15on-1.47.0.2.jar')
     implementation files('libs/scpkix-jdk15on-1.47.0.2.jar')
     implementation files('libs/scprov-jdk15on-1.47.0.2.jar')

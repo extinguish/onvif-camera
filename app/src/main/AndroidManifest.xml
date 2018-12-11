@@ -32,43 +32,18 @@
 
 
     <application
-        android:name="net.majorkernelpanic.spydroid.SpydroidApplication"
         android:allowBackup="true"
-        android:icon="@drawable/icon"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         tools:ignore="GoogleAppIndexingWarning">
 
-        <activity
-            android:name="net.majorkernelpanic.spydroid.ui.SpydroidActivity"
-            android:label="@string/app_name"
-            android:launchMode="singleInstance">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
-        <!--<activity-->
-        <!--android:name="com.google.ads.AdActivity"-->
-        <!--android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|uiMode|screenSize|smallestScreenSize" />-->
-
-        <activity
-            android:name="net.majorkernelpanic.spydroid.ui.OptionsActivity"
-            android:label="@string/options_activity_title" />
-
-        <service android:name="net.majorkernelpanic.spydroid.api.CustomHttpServer" />
-        <service android:name="net.majorkernelpanic.spydroid.api.CustomRtspServer" />
-
-        <!--ONVIF Http Server-->
-        <service android:name="net.majorkernelpanic.onvif.network.ONVIFHttpServer" />
-        <service
-            android:name=".IPCameraService"
-            android:exported="true" />
+        <service android:name="com.adasplus.onvif.http.CustomHttpServer" />
 
         <service
-            android:name="com.adasplus.ipcamera.ShareBufferReadService"
+            android:name="com.adasplus.onvif.OnvifService"
             android:exported="true" />
+
+        <service android:name="com.adasplus.onvif.http.TinyHttpServer" />
 
     </application>
 
