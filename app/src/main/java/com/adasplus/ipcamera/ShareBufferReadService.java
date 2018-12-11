@@ -305,6 +305,8 @@ public class ShareBufferReadService extends Service {
     private static final int MSG_READ_FRONT_STREAM_DATA = 1 << 1;
     private static final int READ_MEDIA_STREAMING_DATA_INTERVAL = 66;
 
+    // TODO: guoshichao we need to use the cpp to read out the ShareBuffer data directly
+    // TODO: and bypass the Java layer, as invoking from C++ to Java is somewhat resource consuming
     private static class FrontCameraHandlerCallback implements Handler.Callback {
         private ShareBufferReadService outObj;
 

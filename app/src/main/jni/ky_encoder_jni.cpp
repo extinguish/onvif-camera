@@ -64,8 +64,8 @@ static jboolean native_prepare(JNIEnv *env, jobject thiz, jlong objAddress, jobj
 }
 
 /**
- * 我们需要使两个encoder同时运行
- * 前路摄像头工作时，后路摄像头也可以同时工作。两个之间不会相互影响
+ * TODO: guoshichao we should not start encoding at here,
+ * and we need to wait for the notification from the client to start encoding
  */
 static jboolean native_start(JNIEnv *env, jobject thiz, jlong objAddress) {
     LOGD_T(TAG_J, "start the encoder of address in %lld", objAddress);

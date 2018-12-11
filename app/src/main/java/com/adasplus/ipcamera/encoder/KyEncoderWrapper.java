@@ -26,11 +26,6 @@ public class KyEncoderWrapper {
         return prepare(mNativeCodecObjAddress, mEncodeParams);
     }
 
-    public boolean start() {
-        checkNativeCodecObjAddressValid(mNativeCodecObjAddress);
-        return start(mNativeCodecObjAddress);
-    }
-
     public boolean encodeFrame(byte[] frame, int frameWidth, int frameHeight) {
         checkNativeCodecObjAddressValid(mNativeCodecObjAddress);
         return encodeFrame(mNativeCodecObjAddress, frame, frameWidth, frameHeight);
@@ -52,11 +47,6 @@ public class KyEncoderWrapper {
      * @param encodeParam 编码参数
      */
     public native boolean prepare(long objAddress, EncodeParam encodeParam);
-
-    /**
-     * @param objAddress native层的KyEncoder的对象的指针地址,这个值是由{@link #create()}返回的值决定
-     */
-    public native boolean start(long objAddress);
 
     public native boolean encodeFrame(long objAddress, byte[] frame, int length, int flag);
 

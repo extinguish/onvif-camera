@@ -77,10 +77,6 @@ V4L2DeviceSource::~V4L2DeviceSource() {
 // 即只要创建了DeviceSource的实例，就会自动开启当前的这个thread
 // thread mainloop
 void *V4L2DeviceSource::thread() {
-    // TODO: 这里如何控制stop
-    // TODO: 在我们关于rtmp的实现当中时，我们是由用户来直接控制stop与否
-    // TODO: 但是在这里我们无法直接控制，因为我们还需要考虑client端的请求参数，例如
-    // TODO: 用户突然发起了TEARDOWN请求，我们也是需要响应的
     bool stop = false;
 
     LOGD_T(LOG_TAG, "begin thread");
