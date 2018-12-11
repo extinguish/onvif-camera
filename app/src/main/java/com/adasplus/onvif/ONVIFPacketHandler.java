@@ -32,13 +32,22 @@ public class ONVIFPacketHandler extends DefaultHandler {
     private static final String LOCAL_MSG_ID_1 = "wsa:MessageID";
     private static final String LOCAL_ACTION_1 = "wsa:Action";
 
+    // the following tag are using to parse the YiJiaWen's GetCapabilities request
+    private static final String USER_NAME = "wsse:Username";
+    private static final String PASSWORD = "wsse:Password";
+    private static final String GET_CAPABILITIES_NONCE = "wsse:Nonce";
+
+
     private boolean isMsgID = false;
     private boolean isAction = false;
+    private boolean isUserName = false;
+    private boolean isPsw = false;
+    private boolean isGetCapabilitiesNonce = false;
 
-    private ONVIFDevDiscoveryReqHeader reqHeader;
+    private ONVIFReqPacketHeader reqHeader;
 
     public ONVIFPacketHandler() {
-        reqHeader = new ONVIFDevDiscoveryReqHeader();
+        reqHeader = new ONVIFReqPacketHeader();
     }
 
     @Override
@@ -59,6 +68,15 @@ public class ONVIFPacketHandler extends DefaultHandler {
             case LOCAL_ACTION_1:
                 isAction = true;
                 break;
+            case USER_NAME:
+                isUserName = true;
+                break;
+            case PASSWORD:
+                isPsw = true;
+                break;
+            case GET_CAPABILITIES_NONCE:
+                isGetCapabilitiesNonce = true;
+                break;
         }
     }
 
@@ -74,6 +92,18 @@ public class ONVIFPacketHandler extends DefaultHandler {
             reqHeader.setAction(action.trim());
             Log.d(TAG, "the action we get are : " + action);
             isAction = false;
+        } else if (isGetCapabilitiesNonce) {
+            String nonce = new String(ch, start, length);
+            reqHeader.setCapabilitiesNonce(nonce.trim());
+            isGetCapabilitiesNonce = false;
+        } else if (isUserName) {
+            String userName = new String(ch, start, length);
+            reqHeader.setUserName(userName.trim());
+            isUserName = false;
+        } else if (isPsw) {
+            String password = new String(ch, start, length);
+            reqHeader.setUserPsw(password.trim());
+            isPsw = false;
         }
     }
 
@@ -87,7 +117,7 @@ public class ONVIFPacketHandler extends DefaultHandler {
         Log.d(TAG, "End of parsing documents");
     }
 
-    public ONVIFDevDiscoveryReqHeader getReqHeader() {
+    public ONVIFReqPacketHeader getReqHeader() {
         return reqHeader;
     }
 }

@@ -14,8 +14,6 @@ import android.util.Log;
 
 import com.adasplus.onvif.http.TinyHttpServer;
 
-import net.majorkernelpanic.spydroid.R;
-
 /**
  * Using to manage the SimpleONVIFManager, and this will be the
  * only single entrance of the Onvif service.

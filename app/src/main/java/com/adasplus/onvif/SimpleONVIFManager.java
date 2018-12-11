@@ -260,7 +260,7 @@ public class SimpleONVIFManager {
         } catch (IOException e) {
             Log.e(TAG, "IOException happened while processing the received message", e);
         }
-        ONVIFDevDiscoveryReqHeader reqHeader = handler.getReqHeader();
+        ONVIFReqPacketHeader reqHeader = handler.getReqHeader();
         String reqMessageId = reqHeader.getMessageId();
         String reqAction = reqHeader.getAction();
 
