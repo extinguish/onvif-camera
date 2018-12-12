@@ -105,7 +105,7 @@ public class ModOnvifServer implements HttpRequestHandler {
             if (requestContent.contains("GetSystemDateAndTime")) {
                 Log.d(TAG, "Handle the response of GetSystemDateAndTime request");
                 TimeZone timeZone = TimeZone.getDefault();
-                String timeZoneName = timeZone.getDisplayName() + timeZone.getID();
+                String timeZoneName = timeZone.getDisplayName(Locale.US) + timeZone.getID();
 
                 String getSystemDateNTimeResponse = constructOnvifGetSystemDateNTimeResponse(timeZoneName,
                         year, month, day, hour, minutes, seconds);
@@ -452,29 +452,29 @@ public class ModOnvifServer implements HttpRequestHandler {
 
         String response = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<env:Envelope xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\" xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\" xmlns:tt=\"http://www.onvif.org/ver10/schema\">\n" +
-                "    <env:Body>\n" +
-                "        <tds:GetSystemDateAndTimeResponse>\n" +
-                "            <tds:SystemDateAndTime>\n" +
-                "                <tt:DateTimeType>Manual</tt:DateTimeType>\n" +
-                "                <tt:DaylightSavings>false</tt:DaylightSavings>\n" +
-                "                <tt:TimeZone>\n" +
-                "                    <tt:TZ>" + timezone + "</tt:TZ>\n" +
-                "                </tt:TimeZone>\n" +
-                "                <tt:UTCDateTime>\n" +
-                "                    <tt:Time>\n" +
-                "                        <tt:Hour>" + hour + "</tt:Hour>\n" +
-                "                        <tt:Minute>" + minute + "</tt:Minute>\n" +
-                "                        <tt:Second>" + second + "</tt:Second>\n" +
-                "                    </tt:Time>\n" +
-                "                    <tt:Date>\n" +
-                "                        <tt:Year>" + year + "</tt:Year>\n" +
-                "                        <tt:Month>" + month + "</tt:Month>\n" +
-                "                        <tt:Day>" + day + "</tt:Day>\n" +
-                "                    </tt:Date>\n" +
-                "                </tt:UTCDateTime>\n" +
-                "            </tds:SystemDateAndTime>\n" +
-                "        </tds:GetSystemDateAndTimeResponse>\n" +
-                "    </env:Body>\n" +
+                "<env:Body>\n" +
+                "<tds:GetSystemDateAndTimeResponse>\n" +
+                "<tds:SystemDateAndTime>\n" +
+                "<tt:DateTimeType>Manual</tt:DateTimeType>\n" +
+                "<tt:DaylightSavings>false</tt:DaylightSavings>\n" +
+                "<tt:TimeZone>\n" +
+                "<tt:TZ>" + timezone + "</tt:TZ>\n" +
+                "</tt:TimeZone>\n" +
+                "<tt:UTCDateTime>\n" +
+                "<tt:Time>\n" +
+                "<tt:Hour>" + hour + "</tt:Hour>\n" +
+                "<tt:Minute>" + minute + "</tt:Minute>\n" +
+                "<tt:Second>" + second + "</tt:Second>\n" +
+                "</tt:Time>\n" +
+                "<tt:Date>\n" +
+                "<tt:Year>" + year + "</tt:Year>\n" +
+                "<tt:Month>" + month + "</tt:Month>\n" +
+                "<tt:Day>" + day + "</tt:Day>\n" +
+                "</tt:Date>\n" +
+                "</tt:UTCDateTime>\n" +
+                "</tds:SystemDateAndTime>\n" +
+                "</tds:GetSystemDateAndTimeResponse>\n" +
+                "</env:Body>\n" +
                 "</env:Envelope>";
 
         return response;
@@ -490,147 +490,148 @@ public class ModOnvifServer implements HttpRequestHandler {
     private String constructOnvifGetCapabilitiesResponse(String serverIpAddress) {
         Log.d(TAG, "respond the GetCapabilities request with server ip address of " + serverIpAddress);
 
+        // TODO: we have exception while send the following xml data back to the IPCameraViewerClient
         String response = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<env:Envelope xmlns:d=\"http://schemas.xmlsoap.org/ws/2005/04/discovery\" xmlns:dn=\"http://www.onvif.org/ver10/network/wsdl\" xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:hikwsd=\"http://www.onvifext.com/onvif/ext/ver10/wsdl\" xmlns:hikxsd=\"http://www.onvifext.com/onvif/ext/ver10/schema\" xmlns:http=\"http://schemas.xmlsoap.org/wsdl/http\" xmlns:soapenc=\"http://www.w3.org/2003/05/soap-encoding\" xmlns:tan=\"http://www.onvif.org/ver20/analytics/wsdl\" xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\" xmlns:ter=\"http://www.onvif.org/ver10/error\" xmlns:tev=\"http://www.onvif.org/ver10/events/wsdl\" xmlns:timg=\"http://www.onvif.org/ver20/imaging/wsdl\" xmlns:tmd=\"http://www.onvif.org/ver10/deviceIO/wsdl\" xmlns:tns1=\"http://www.onvif.org/ver10/topics\" xmlns:tnshik=\"http://www.hikvision.com/2011/event/topics\" xmlns:tptz=\"http://www.onvif.org/ver20/ptz/wsdl\" xmlns:trc=\"http://www.onvif.org/ver10/recording/wsdl\" xmlns:trp=\"http://www.onvif.org/ver10/replay/wsdl\" xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\" xmlns:tse=\"http://www.onvif.org/ver10/search/wsdl\" xmlns:tst=\"http://www.onvif.org/ver10/storage/wsdl\" xmlns:tt=\"http://www.onvif.org/ver10/schema\" xmlns:wsa=\"http://www.w3.org/2005/08/addressing\" xmlns:wsadis=\"http://schemas.xmlsoap.org/ws/2004/08/addressing\" xmlns:wsaw=\"http://www.w3.org/2006/05/addressing/wsdl\" xmlns:wsdl=\"http://schemas.xmlsoap.org/wsdl\" xmlns:wsnt=\"http://docs.oasis-open.org/wsn/b-2\" xmlns:wsntw=\"http://docs.oasis-open.org/wsn/bw-2\" xmlns:wsoap12=\"http://schemas.xmlsoap.org/wsdl/soap12\" xmlns:wsrf-bf=\"http://docs.oasis-open.org/wsrf/bf-2\" xmlns:wsrf-r=\"http://docs.oasis-open.org/wsrf/r-2\" xmlns:wsrf-rw=\"http://docs.oasis-open.org/wsrf/rw-2\" xmlns:wstop=\"http://docs.oasis-open.org/wsn/t-1\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n" +
-                "    <env:Body>\n" +
-                "        <tds:GetCapabilitiesResponse>\n" +
-                "            <tds:Capabilities>\n" +
-                "                <tt:Analytics>\n" +
-                "                    <tt:XAddr>http://" + serverIpAddress + "/onvif/Analytics</tt:XAddr>\n" +
-                "                    <tt:RuleSupport>true</tt:RuleSupport>\n" +
-                "                    <tt:AnalyticsModuleSupport>true</tt:AnalyticsModuleSupport>\n" +
-                "                </tt:Analytics>\n" +
-                "                <tt:Device>\n" +
-                "                    <tt:XAddr>http://" + serverIpAddress + "/onvif/device_service</tt:XAddr>\n" +
-                "                    <tt:Network>\n" +
-                "                        <tt:IPFilter>true</tt:IPFilter>\n" +
-                "                        <tt:ZeroConfiguration>true</tt:ZeroConfiguration>\n" +
-                "                        <tt:IPVersion6>false</tt:IPVersion6>\n" +
-                "                        <tt:DynDNS>true</tt:DynDNS>\n" +
-                "                        <tt:Extension>\n" +
-                "                            <tt:Dot11Configuration>false</tt:Dot11Configuration>\n" +
-                "                            <tt:Extension>\n" +
-                "                                <tt:DHCPv6>true</tt:DHCPv6>\n" +
-                "                                <tt:Dot1XConfigurations>0</tt:Dot1XConfigurations>\n" +
-                "                            </tt:Extension>\n" +
-                "                        </tt:Extension>\n" +
-                "                    </tt:Network>\n" +
-                "                    <tt:System>\n" +
-                "                        <tt:DiscoveryResolve>false</tt:DiscoveryResolve>\n" +
-                "                        <tt:DiscoveryBye>true</tt:DiscoveryBye>\n" +
-                "                        <tt:RemoteDiscovery>true</tt:RemoteDiscovery>\n" +
-                "                        <tt:SystemBackup>true</tt:SystemBackup>\n" +
-                "                        <tt:SystemLogging>true</tt:SystemLogging>\n" +
-                "                        <tt:FirmwareUpgrade>true</tt:FirmwareUpgrade>\n" +
-                "                        <tt:SupportedVersions>\n" +
-                "                            <tt:Major>2</tt:Major>\n" +
-                "                            <tt:Minor>40</tt:Minor>\n" +
-                "                        </tt:SupportedVersions>\n" +
-                "                        <tt:SupportedVersions>\n" +
-                "                            <tt:Major>2</tt:Major>\n" +
-                "                            <tt:Minor>20</tt:Minor>\n" +
-                "                        </tt:SupportedVersions>\n" +
-                "                        <tt:SupportedVersions>\n" +
-                "                            <tt:Major>2</tt:Major>\n" +
-                "                            <tt:Minor>10</tt:Minor>\n" +
-                "                        </tt:SupportedVersions>\n" +
-                "                        <tt:SupportedVersions>\n" +
-                "                            <tt:Major>2</tt:Major>\n" +
-                "                            <tt:Minor>0</tt:Minor>\n" +
-                "                        </tt:SupportedVersions>\n" +
-                "                        <tt:Extension>\n" +
-                "                            <tt:HttpFirmwareUpgrade>false</tt:HttpFirmwareUpgrade>\n" +
-                "                            <tt:HttpSystemBackup>true</tt:HttpSystemBackup>\n" +
-                "                            <tt:HttpSystemLogging>false</tt:HttpSystemLogging>\n" +
-                "                            <tt:HttpSupportInformation>false</tt:HttpSupportInformation>\n" +
-                "                        </tt:Extension>\n" +
-                "                    </tt:System>\n" +
-                "                    <tt:IO>\n" +
-                "                        <tt:InputConnectors>1</tt:InputConnectors>\n" +
-                "                        <tt:RelayOutputs>1</tt:RelayOutputs>\n" +
-                "                        <tt:Extension>\n" +
-                "                            <tt:Auxiliary>false</tt:Auxiliary>\n" +
-                "                            <tt:AuxiliaryCommands>nothing</tt:AuxiliaryCommands>\n" +
-                "                            <tt:Extension />\n" +
-                "                        </tt:Extension>\n" +
-                "                    </tt:IO>\n" +
-                "                    <tt:Security>\n" +
-                "                        <tt:TLS1.1>false</tt:TLS1.1>\n" +
-                "                        <tt:TLS1.2>false</tt:TLS1.2>\n" +
-                "                        <tt:OnboardKeyGeneration>false</tt:OnboardKeyGeneration>\n" +
-                "                        <tt:AccessPolicyConfig>false</tt:AccessPolicyConfig>\n" +
-                "                        <tt:X.509Token>false</tt:X.509Token>\n" +
-                "                        <tt:SAMLToken>false</tt:SAMLToken>\n" +
-                "                        <tt:KerberosToken>false</tt:KerberosToken>\n" +
-                "                        <tt:RELToken>false</tt:RELToken>\n" +
-                "                        <tt:Extension>\n" +
-                "                            <tt:TLS1.0>false</tt:TLS1.0>\n" +
-                "                            <tt:Extension>\n" +
-                "                                <tt:Dot1X>false</tt:Dot1X>\n" +
-                "                                <tt:SupportedEAPMethod>0</tt:SupportedEAPMethod>\n" +
-                "                                <tt:RemoteUserHandling>false</tt:RemoteUserHandling>\n" +
-                "                            </tt:Extension>\n" +
-                "                        </tt:Extension>\n" +
-                "                    </tt:Security>\n" +
-                "                </tt:Device>\n" +
-                "                <tt:Events>\n" +
-                "                    <tt:XAddr>http://" + serverIpAddress + "/onvif/Events</tt:XAddr>\n" +
-                "                    <tt:WSSubscriptionPolicySupport>true</tt:WSSubscriptionPolicySupport>\n" +
-                "                    <tt:WSPullPointSupport>true</tt:WSPullPointSupport>\n" +
-                "                    <tt:WSPausableSubscriptionManagerInterfaceSupport>false\n" +
-                "                    </tt:WSPausableSubscriptionManagerInterfaceSupport>\n" +
-                "                </tt:Events>\n" +
-                "                <tt:Imaging>\n" +
-                "                    <tt:XAddr>http://" + serverIpAddress + "/onvif/Imaging</tt:XAddr>\n" +
-                "                </tt:Imaging>\n" +
-                "                <tt:Media>\n" +
-                "                    <tt:XAddr>http://" + serverIpAddress + "/onvif/Media</tt:XAddr>\n" +
-                "                    <tt:StreamingCapabilities>\n" +
-                "                        <tt:RTPMulticast>true</tt:RTPMulticast>\n" +
-                "                        <tt:RTP_TCP>true</tt:RTP_TCP>\n" +
-                "                        <tt:RTP_RTSP_TCP>true</tt:RTP_RTSP_TCP>\n" +
-                "                    </tt:StreamingCapabilities>\n" +
-                "                    <tt:Extension>\n" +
-                "                        <tt:ProfileCapabilities>\n" +
-                "                            <tt:MaximumNumberOfProfiles>10</tt:MaximumNumberOfProfiles>\n" +
-                "                        </tt:ProfileCapabilities>\n" +
-                "                    </tt:Extension>\n" +
-                "                </tt:Media>\n" +
-                "                <tt:Extension>\n" +
-                "                    <hikxsd:hikCapabilities>\n" +
-                "                        <hikxsd:XAddr>http://" + serverIpAddress + "/onvif/hik_ext</hikxsd:XAddr>\n" +
-                "                        <hikxsd:IOInputSupport>true</hikxsd:IOInputSupport>\n" +
-                "                        <hikxsd:PrivacyMaskSupport>true</hikxsd:PrivacyMaskSupport>\n" +
-                "                        <hikxsd:PTZ3DZoomSupport>false</hikxsd:PTZ3DZoomSupport>\n" +
-                "                        <hikxsd:PTZPatternSupport>true</hikxsd:PTZPatternSupport>\n" +
-                "                    </hikxsd:hikCapabilities>\n" +
-                "                    <tt:DeviceIO>\n" +
-                "                        <tt:XAddr>http://" + serverIpAddress + "/onvif/DeviceIO</tt:XAddr>\n" +
-                "                        <tt:VideoSources>1</tt:VideoSources>\n" +
-                "                        <tt:VideoOutputs>0</tt:VideoOutputs>\n" +
-                "                        <tt:AudioSources>1</tt:AudioSources>\n" +
-                "                        <tt:AudioOutputs>1</tt:AudioOutputs>\n" +
-                "                        <tt:RelayOutputs>1</tt:RelayOutputs>\n" +
-                "                    </tt:DeviceIO>\n" +
-                "                    <tt:Recording>\n" +
-                "                        <tt:XAddr>http://" + serverIpAddress + "/onvif/Recording</tt:XAddr>\n" +
-                "                        <tt:ReceiverSource>false</tt:ReceiverSource>\n" +
-                "                        <tt:MediaProfileSource>true</tt:MediaProfileSource>\n" +
-                "                        <tt:DynamicRecordings>false</tt:DynamicRecordings>\n" +
-                "                        <tt:DynamicTracks>false</tt:DynamicTracks>\n" +
-                "                        <tt:MaxStringLength>64</tt:MaxStringLength>\n" +
-                "                    </tt:Recording>\n" +
-                "                    <tt:Search>\n" +
-                "                        <tt:XAddr>http://" + serverIpAddress + "/onvif/SearchRecording</tt:XAddr>\n" +
-                "                        <tt:MetadataSearch>false</tt:MetadataSearch>\n" +
-                "                    </tt:Search>\n" +
-                "                    <tt:Replay>\n" +
-                "                        <tt:XAddr>http://" + serverIpAddress + "/onvif/Replay</tt:XAddr>\n" +
-                "                    </tt:Replay>\n" +
-                "                </tt:Extension>\n" +
-                "            </tds:Capabilities>\n" +
-                "        </tds:GetCapabilitiesResponse>\n" +
-                "    </env:Body>\n" +
+                "<env:Body>\n" +
+                "<tds:GetCapabilitiesResponse>\n" +
+                "<tds:Capabilities>\n" +
+                "<tt:Analytics>\n" +
+                "<tt:XAddr>http://" + serverIpAddress + "/onvif/Analytics</tt:XAddr>\n" +
+                "<tt:RuleSupport>true</tt:RuleSupport>\n" +
+                "<tt:AnalyticsModuleSupport>true</tt:AnalyticsModuleSupport>\n" +
+                "</tt:Analytics>\n" +
+                "<tt:Device>\n" +
+                "<tt:XAddr>http://" + serverIpAddress + "/onvif/device_service</tt:XAddr>\n" +
+                "<tt:Network>\n" +
+                "<tt:IPFilter>true</tt:IPFilter>\n" +
+                "<tt:ZeroConfiguration>true</tt:ZeroConfiguration>\n" +
+                "<tt:IPVersion6>false</tt:IPVersion6>\n" +
+                "<tt:DynDNS>true</tt:DynDNS>\n" +
+                "<tt:Extension>\n" +
+                "<tt:Dot11Configuration>false</tt:Dot11Configuration>\n" +
+                "<tt:Extension>\n" +
+                "<tt:DHCPv6>true</tt:DHCPv6>\n" +
+                "<tt:Dot1XConfigurations>0</tt:Dot1XConfigurations>\n" +
+                "</tt:Extension>\n" +
+                "</tt:Extension>\n" +
+                "</tt:Network>\n" +
+                "<tt:System>\n" +
+                "<tt:DiscoveryResolve>false</tt:DiscoveryResolve>\n" +
+                "<tt:DiscoveryBye>true</tt:DiscoveryBye>\n" +
+                "<tt:RemoteDiscovery>true</tt:RemoteDiscovery>\n" +
+                "<tt:SystemBackup>true</tt:SystemBackup>\n" +
+                "<tt:SystemLogging>true</tt:SystemLogging>\n" +
+                "<tt:FirmwareUpgrade>true</tt:FirmwareUpgrade>\n" +
+                "<tt:SupportedVersions>\n" +
+                "<tt:Major>2</tt:Major>\n" +
+                "<tt:Minor>40</tt:Minor>\n" +
+                "</tt:SupportedVersions>\n" +
+                "<tt:SupportedVersions>\n" +
+                "<tt:Major>2</tt:Major>\n" +
+                "<tt:Minor>20</tt:Minor>\n" +
+                "</tt:SupportedVersions>\n" +
+                "<tt:SupportedVersions>\n" +
+                "<tt:Major>2</tt:Major>\n" +
+                "<tt:Minor>10</tt:Minor>\n" +
+                "</tt:SupportedVersions>\n" +
+                "<tt:SupportedVersions>\n" +
+                "<tt:Major>2</tt:Major>\n" +
+                "<tt:Minor>0</tt:Minor>\n" +
+                "</tt:SupportedVersions>\n" +
+                "<tt:Extension>\n" +
+                "<tt:HttpFirmwareUpgrade>false</tt:HttpFirmwareUpgrade>\n" +
+                "<tt:HttpSystemBackup>true</tt:HttpSystemBackup>\n" +
+                "<tt:HttpSystemLogging>false</tt:HttpSystemLogging>\n" +
+                "<tt:HttpSupportInformation>false</tt:HttpSupportInformation>\n" +
+                "</tt:Extension>\n" +
+                "</tt:System>\n" +
+                "<tt:IO>\n" +
+                "<tt:InputConnectors>1</tt:InputConnectors>\n" +
+                "<tt:RelayOutputs>1</tt:RelayOutputs>\n" +
+                "<tt:Extension>\n" +
+                "<tt:Auxiliary>false</tt:Auxiliary>\n" +
+                "<tt:AuxiliaryCommands>nothing</tt:AuxiliaryCommands>\n" +
+                "<tt:Extension />\n" +
+                "</tt:Extension>\n" +
+                "</tt:IO>\n" +
+                "<tt:Security>\n" +
+                "<tt:TLS1.1>false</tt:TLS1.1>\n" +
+                "<tt:TLS1.2>false</tt:TLS1.2>\n" +
+                "<tt:OnboardKeyGeneration>false</tt:OnboardKeyGeneration>\n" +
+                "<tt:AccessPolicyConfig>false</tt:AccessPolicyConfig>\n" +
+                "<tt:X.509Token>false</tt:X.509Token>\n" +
+                "<tt:SAMLToken>false</tt:SAMLToken>\n" +
+                "<tt:KerberosToken>false</tt:KerberosToken>\n" +
+                "<tt:RELToken>false</tt:RELToken>\n" +
+                "<tt:Extension>\n" +
+                "<tt:TLS1.0>false</tt:TLS1.0>\n" +
+                "<tt:Extension>\n" +
+                "<tt:Dot1X>false</tt:Dot1X>\n" +
+                "<tt:SupportedEAPMethod>0</tt:SupportedEAPMethod>\n" +
+                "<tt:RemoteUserHandling>false</tt:RemoteUserHandling>\n" +
+                "</tt:Extension>\n" +
+                "</tt:Extension>\n" +
+                "</tt:Security>\n" +
+                "</tt:Device>\n" +
+                "<tt:Events>\n" +
+                "<tt:XAddr>http://" + serverIpAddress + "/onvif/Events</tt:XAddr>\n" +
+                "<tt:WSSubscriptionPolicySupport>true</tt:WSSubscriptionPolicySupport>\n" +
+                "<tt:WSPullPointSupport>true</tt:WSPullPointSupport>\n" +
+                "<tt:WSPausableSubscriptionManagerInterfaceSupport>false\n" +
+                "</tt:WSPausableSubscriptionManagerInterfaceSupport>\n" +
+                "</tt:Events>\n" +
+                "<tt:Imaging>\n" +
+                "<tt:XAddr>http://" + serverIpAddress + "/onvif/Imaging</tt:XAddr>\n" +
+                "</tt:Imaging>\n" +
+                "<tt:Media>\n" +
+                "<tt:XAddr>http://" + serverIpAddress + "/onvif/Media</tt:XAddr>\n" +
+                "<tt:StreamingCapabilities>\n" +
+                "<tt:RTPMulticast>true</tt:RTPMulticast>\n" +
+                "<tt:RTP_TCP>true</tt:RTP_TCP>\n" +
+                "<tt:RTP_RTSP_TCP>true</tt:RTP_RTSP_TCP>\n" +
+                "</tt:StreamingCapabilities>\n" +
+                "<tt:Extension>\n" +
+                "<tt:ProfileCapabilities>\n" +
+                "<tt:MaximumNumberOfProfiles>10</tt:MaximumNumberOfProfiles>\n" +
+                "</tt:ProfileCapabilities>\n" +
+                "</tt:Extension>\n" +
+                "</tt:Media>\n" +
+                "<tt:Extension>\n" +
+                "<hikxsd:hikCapabilities>\n" +
+                "<hikxsd:XAddr>http://" + serverIpAddress + "/onvif/hik_ext</hikxsd:XAddr>\n" +
+                "<hikxsd:IOInputSupport>true</hikxsd:IOInputSupport>\n" +
+                "<hikxsd:PrivacyMaskSupport>true</hikxsd:PrivacyMaskSupport>\n" +
+                "<hikxsd:PTZ3DZoomSupport>false</hikxsd:PTZ3DZoomSupport>\n" +
+                "<hikxsd:PTZPatternSupport>true</hikxsd:PTZPatternSupport>\n" +
+                "</hikxsd:hikCapabilities>\n" +
+                "<tt:DeviceIO>\n" +
+                "<tt:XAddr>http://" + serverIpAddress + "/onvif/DeviceIO</tt:XAddr>\n" +
+                "<tt:VideoSources>1</tt:VideoSources>\n" +
+                "<tt:VideoOutputs>0</tt:VideoOutputs>\n" +
+                "<tt:AudioSources>1</tt:AudioSources>\n" +
+                "<tt:AudioOutputs>1</tt:AudioOutputs>\n" +
+                "<tt:RelayOutputs>1</tt:RelayOutputs>\n" +
+                "</tt:DeviceIO>\n" +
+                "<tt:Recording>\n" +
+                "<tt:XAddr>http://" + serverIpAddress + "/onvif/Recording</tt:XAddr>\n" +
+                "<tt:ReceiverSource>false</tt:ReceiverSource>\n" +
+                "<tt:MediaProfileSource>true</tt:MediaProfileSource>\n" +
+                "<tt:DynamicRecordings>false</tt:DynamicRecordings>\n" +
+                "<tt:DynamicTracks>false</tt:DynamicTracks>\n" +
+                "<tt:MaxStringLength>64</tt:MaxStringLength>\n" +
+                "</tt:Recording>\n" +
+                "<tt:Search>\n" +
+                "<tt:XAddr>http://" + serverIpAddress + "/onvif/SearchRecording</tt:XAddr>\n" +
+                "<tt:MetadataSearch>false</tt:MetadataSearch>\n" +
+                "</tt:Search>\n" +
+                "<tt:Replay>\n" +
+                "<tt:XAddr>http://" + serverIpAddress + "/onvif/Replay</tt:XAddr>\n" +
+                "</tt:Replay>\n" +
+                "</tt:Extension>\n" +
+                "</tds:Capabilities>\n" +
+                "</tds:GetCapabilitiesResponse>\n" +
+                "</env:Body>\n" +
                 "</env:Envelope>";
 
         return response;
