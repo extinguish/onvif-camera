@@ -38,11 +38,28 @@ public class ONVIFPacketHandler extends DefaultHandler {
     private static final String GET_CAPABILITIES_NONCE = "wsse:Nonce";
 
 
+    // the following are using to parse the YiJiaWen's SetSystemDateAndTime request
+    private static final String HOUR = "tt:Hour";
+    private static final String MINUTE = "tt:Minute";
+    private static final String SECOND = "tt:Second";
+
+    private static final String YEAR = "tt:Year";
+    private static final String MONTH = "tt:Month";
+    private static final String DAY = "tt:Day";
+
     private boolean isMsgID = false;
     private boolean isAction = false;
     private boolean isUserName = false;
     private boolean isPsw = false;
     private boolean isGetCapabilitiesNonce = false;
+
+    private boolean isHour = false;
+    private boolean isMinute = false;
+    private boolean isSecond = false;
+
+    private boolean isYear = false;
+    private boolean isMonth = false;
+    private boolean isDay = false;
 
     private ONVIFReqPacketHeader reqHeader;
 
@@ -77,6 +94,24 @@ public class ONVIFPacketHandler extends DefaultHandler {
             case GET_CAPABILITIES_NONCE:
                 isGetCapabilitiesNonce = true;
                 break;
+            case HOUR:
+                isHour = true;
+                break;
+            case MINUTE:
+                isMinute = true;
+                break;
+            case SECOND:
+                isSecond = true;
+                break;
+            case YEAR:
+                isYear = true;
+                break;
+            case MONTH:
+                isMonth = true;
+                break;
+            case DAY:
+                isDay = true;
+                break;
         }
     }
 
@@ -104,6 +139,30 @@ public class ONVIFPacketHandler extends DefaultHandler {
             String password = new String(ch, start, length);
             reqHeader.setUserPsw(password.trim());
             isPsw = false;
+        } else if (isHour) {
+            String hour = new String(ch, start, length);
+            reqHeader.setHour(hour.trim());
+            isHour = false;
+        } else if (isMinute) {
+            String minute = new String(ch, start, length);
+            reqHeader.setMinute(minute.trim());
+            isMinute = false;
+        } else if (isSecond) {
+            String second = new String(ch, start, length);
+            reqHeader.setSecond(second.trim());
+            isSecond = false;
+        } else if (isYear) {
+            String year = new String(ch, start, length);
+            reqHeader.setYear(year);
+            isYear = false;
+        } else if (isMonth) {
+            String month = new String(ch, start, length);
+            reqHeader.setMonth(month);
+            isMonth = false;
+        } else if (isDay) {
+            String day = new String(ch, start, length);
+            reqHeader.setDay(day);
+            isDay = false;
         }
     }
 

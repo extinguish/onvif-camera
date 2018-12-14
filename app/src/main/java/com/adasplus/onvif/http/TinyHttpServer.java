@@ -366,7 +366,7 @@ public class TinyHttpServer extends Service {
                 .setIntParameter(CoreConnectionPNames.SOCKET_BUFFER_SIZE, 8 * 1024)
                 .setBooleanParameter(CoreConnectionPNames.STALE_CONNECTION_CHECK, false)
                 .setBooleanParameter(CoreConnectionPNames.TCP_NODELAY, true)
-                .setParameter(CoreProtocolPNames.ORIGIN_SERVER, "MajorKernelPanic HTTP Server");
+                .setParameter(CoreProtocolPNames.ORIGIN_SERVER, "Onvif Http Server");
 
         // Set up the HTTP protocol processor
         mHttpProcessor = new BasicHttpProcessor();

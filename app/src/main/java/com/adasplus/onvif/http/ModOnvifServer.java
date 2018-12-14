@@ -1,10 +1,13 @@
 package com.adasplus.onvif.http;
 
 import android.annotation.SuppressLint;
+import android.app.AlarmManager;
 import android.content.Context;
 import android.os.Build;
 import android.util.Log;
 
+import com.adasplus.onvif.ONVIFPacketHandler;
+import com.adasplus.onvif.ONVIFReqPacketHeader;
 import com.adasplus.onvif.Utilities;
 
 import org.apache.http.HttpEntity;
@@ -22,6 +25,7 @@ import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.protocol.HttpRequestHandler;
 import org.apache.http.util.EntityUtils;
+import org.xml.sax.SAXException;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -32,6 +36,10 @@ import java.net.URLDecoder;
 import java.util.Calendar;
 import java.util.Locale;
 import java.util.TimeZone;
+
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 
 /**
  * 同{@link ModAssetServer}的工作方式一样。
@@ -97,8 +105,33 @@ public class ModOnvifServer implements HttpRequestHandler {
             HttpEntity entity = ((HttpEntityEnclosingRequest) httpRequest).getEntity();
             byte[] entityContent = EntityUtils.toByteArray(entity);
 
+            SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
+            SAXParser saxParser = null;
+            try {
+                saxParser = saxParserFactory.newSAXParser();
+            } catch (ParserConfigurationException e) {
+                Log.e(TAG, "SAX Parse Configuration Exception happened", e);
+            } catch (SAXException e) {
+                Log.e(TAG, "SAX Exception happened", e);
+            }
+            if (saxParser == null) {
+                Log.e(TAG, "fail to get the SAX Parser, neglect this discovery packet");
+                return;
+            }
+
+            ONVIFPacketHandler handler = new ONVIFPacketHandler();
+
             String requestContent = new String(entityContent);
-            Log.d(TAG, "the request content are " + requestContent);
+
+            try {
+                saxParser.parse(new ByteArrayInputStream(requestContent.getBytes()), handler);
+            } catch (SAXException e) {
+                Log.e(TAG, "SAXException happened while processing the received message", e);
+            } catch (IOException e) {
+                Log.e(TAG, "IOException happened while processing the received message", e);
+            }
+            ONVIFReqPacketHeader reqHeader = handler.getReqHeader();
+
             // 关于不同的请求内容对应的不同的含义，直接参考位于项目根目录当中的ONVIF_Protocol.md
             // 以下的请求结果返回都是/onvif/device_service接口的返回数据
             httpResponse.setStatusCode(HttpStatus.SC_OK);
@@ -114,10 +147,68 @@ public class ModOnvifServer implements HttpRequestHandler {
                 body = new InputStreamEntity(servicesResponseInputStream, responseContentByteArr.length);
             } else if (requestContent.contains("GetCapabilities")) {
                 Log.d(TAG, "Handle the response of GetCapabilities request");
+
+                String userName = reqHeader.getUserName();
+                String passwordDigest = reqHeader.getUserPsw();
+                String nonce = reqHeader.getCapabilitiesNonce();
+                String createdTime = year + "-" + month + "-" + day + "T" + hour + ":" + minutes + ":" + seconds + "Z";
+
+                // generate the auth string based on user request password
+
                 String getCapabilitiesResponse = constructOnvifGetCapabilitiesResponse(serverIp);
                 byte[] responseContentByteArr = getCapabilitiesResponse.getBytes("UTF-8");
                 InputStream servicesResponseInputStream = new ByteArrayInputStream(responseContentByteArr);
                 body = new InputStreamEntity(servicesResponseInputStream, responseContentByteArr.length);
+            } else if (requestContent.contains("SetSystemDateAndTime")) {
+                boolean setupResult = false;
+                try {
+                    // parse out the detailed field the client provided
+                    int clientHour = Integer.parseInt(reqHeader.getHour());
+                    int clientMinute = Integer.parseInt(reqHeader.getMinute());
+                    int clientSecond = Integer.parseInt(reqHeader.getSecond());
+                    int clientYear = Integer.parseInt(reqHeader.getYear());
+                    int clientMonth = Integer.parseInt(reqHeader.getMonth());
+                    int clientDay = Integer.parseInt(reqHeader.getDay());
+                    // and we using the client provided time to sync current device's time
+                    // but if we are not system app, then we will do not have permission to setup system date
+                    // and time
+                    Calendar syncTimeCalendar = Calendar.getInstance();
+                    syncTimeCalendar.set(clientYear, clientMonth, clientDay, clientHour, clientMinute,
+                            clientSecond);
+                    AlarmManager alarmManager = (AlarmManager) mContext.getSystemService(Context.ALARM_SERVICE);
+                    if (alarmManager != null) {
+                        alarmManager.setTime(syncTimeCalendar.getTimeInMillis());
+                        setupResult = true;
+                    }
+                } catch (final Exception e) {
+                    Log.e(TAG, "Exception happened while setup the system date and time");
+                }
+
+                String setDateAndTimeResponse = constructOnvifSetSystemDateAndTimeResponse(true);
+                byte[] responseContentByteArr = setDateAndTimeResponse.getBytes("UTF-8");
+                InputStream responseInputStream = new ByteArrayInputStream(responseContentByteArr);
+                body = new InputStreamEntity(responseInputStream, responseContentByteArr.length);
+            } else if (requestContent.contains("GetVideoEncoderConfigurationOptions")) {
+                Log.d(TAG, "received the GetVideoEncoderConfigurationOptions request");
+                final int width = 320;
+                final int height = 240;
+                String getVideoEncoderConfigOpsResponse = constructOnvifGetVideoEncoderConfigurationOptionsResponse(width, height);
+                byte[] responseContentByteArr = getVideoEncoderConfigOpsResponse.getBytes("UTF-8");
+                InputStream videoEncoderConfigOptsResponseStream = new ByteArrayInputStream(responseContentByteArr);
+                body = new InputStreamEntity(videoEncoderConfigOptsResponseStream, responseContentByteArr.length);
+            } else if (requestContent.contains("CreateOSD")) {
+                Log.d(TAG, "handle the CreateOSD request");
+
+                String createOSDResponse = constructOnvifCreateOSDResponse("osdToken_01");
+                byte[] responseByteArr = createOSDResponse.getBytes("UTF-8");
+                InputStream responseInputStream = new ByteArrayInputStream(responseByteArr);
+                body = new InputStreamEntity(responseInputStream, responseByteArr.length);
+            } else if (requestContent.contains("SetOSD")) {
+                Log.d(TAG, "handle the SetOSD request");
+                String setOSDResponse = constructOnvifSetOSDResponse();
+                byte[] responseByteArr = setOSDResponse.getBytes("UTF-8");
+                InputStream responseInputStream = new ByteArrayInputStream(responseByteArr);
+                body = new InputStreamEntity(responseInputStream, responseByteArr.length);
             } else if (requestContent.contains("GetServices")) {
                 Log.d(TAG, "is GetServices interface");
                 Log.d(TAG, "return the device base info");
@@ -134,7 +225,8 @@ public class ModOnvifServer implements HttpRequestHandler {
                 body = new InputStreamEntity(devInfoResponseInputStream, responseContentByteArr.length);
             } else if (requestContent.contains("GetProfiles")) {
                 Log.d(TAG, "is GetProfiles interface");
-                // TODO: the following video attributes value should be provided by the native IPCamera
+                // TODO: the following video attributes value should be retrieved from the native IPCamera dynamically,
+                // as these information may be changing with different device
                 final int videoResWidth = 320;
                 final int videoResHeight = 240;
                 final int videoBitRate = 135000;
@@ -150,7 +242,7 @@ public class ModOnvifServer implements HttpRequestHandler {
                 InputStream streamUriContentInputStream = new ByteArrayInputStream(responseContentByteArr);
                 body = new InputStreamEntity(streamUriContentInputStream, responseContentByteArr.length);
             } else {
-                Log.e(TAG, "not known interface");
+                Log.e(TAG, "not known interface of --> " + requestContent);
                 httpResponse.setStatusCode(HttpStatus.SC_NOT_FOUND);
                 body = new EntityTemplate(new ContentProducer() {
                     public void writeTo(final OutputStream outstream) throws IOException {
@@ -166,7 +258,7 @@ public class ModOnvifServer implements HttpRequestHandler {
                 httpResponse.setEntity(body);
                 return;
             }
-            // body.setContentType("onvif/xml; charset=UTF-8");
+            body.setContentType("application/soap+xml");
             httpResponse.setEntity(body);
         }
     }
@@ -186,132 +278,133 @@ public class ModOnvifServer implements HttpRequestHandler {
      * @param localIpAddress 当前设备的IP地址
      */
     private String constructOnvifDeviceServiceResponse(String localIpAddress) {
+        Log.d(TAG, "construct get service response with ip address of " + localIpAddress);
         String responseContent = "<?xml version='1.0' encoding='utf-8' ?>\n" +
                 "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\"\n" +
-                "    xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\"\n" +
-                "    xmlns:tev=\"http://www.onvif.org/ver10/events/wsdl\"\n" +
-                "    xmlns:timg=\"http://www.onvif.org/ver20/imaging/wsdl\"\n" +
-                "    xmlns:tptz=\"http://www.onvif.org/ver20/ptz/wsdl\"\n" +
-                "    xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\"\n" +
-                "    xmlns:tt=\"http://www.onvif.org/ver10/schema\">\n" +
-                "    <s:Body>\n" +
-                "        <tds:GetServicesResponse>\n" +
-                "            <tds:Service>\n" +
-                "                <tds:Namespace>http://www.onvif.org/ver10/device/wsdl</tds:Namespace>\n" +
-                "                <tds:XAddr>http://" + localIpAddress + ":8081:8081/onvif/device_service</tds:XAddr>\n" +
-                "                <tds:Capabilities>\n" +
-                "                    <tds:Capabilities>\n" +
-                "                        <tds:Network\n" +
-                "                            DHCPv6=\"false\"\n" +
-                "                            Dot11Configuration=\"false\"\n" +
-                "                            Dot1XConfigurations=\"0\"\n" +
-                "                            DynDNS=\"false\"\n" +
-                "                            HostnameFromDHCP=\"true\"\n" +
-                "                            IPFilter=\"true\"\n" +
-                "                            IPVersion6=\"false\"\n" +
-                "                            NTP=\"1\"\n" +
-                "                            ZeroConfiguration=\"true\" />\n" +
-                "                        <tds:Security\n" +
-                "                            AccessPolicyConfig=\"true\"\n" +
-                "                            DefaultAccessPolicy=\"false\"\n" +
-                "                            Dot1X=\"false\"\n" +
-                "                            HttpDigest=\"false\"\n" +
-                "                            KerberosToken=\"false\"\n" +
-                "                            MaxUsers=\"10\"\n" +
-                "                            OnboardKeyGeneration=\"false\"\n" +
-                "                            RELToken=\"false\"\n" +
-                "                            RemoteUserHandling=\"false\"\n" +
-                "                            SAMLToken=\"false\"\n" +
-                "                            TLS1.0=\"false\"\n" +
-                "                            TLS1.1=\"false\"\n" +
-                "                            TLS1.2=\"false\"\n" +
-                "                            UsernameToken=\"true\"\n" +
-                "                            X.509Token=\"false\" />\n" +
-                "                        <tds:System\n" +
-                "                            DiscoveryBye=\"true\"\n" +
-                "                            DiscoveryResolve=\"true\"\n" +
-                "                            FirmwareUpgrade=\"false\"\n" +
-                "                            HttpFirmwareUpgrade=\"false\"\n" +
-                "                            HttpSupportInformation=\"false\"\n" +
-                "                            HttpSystemBackup=\"false\"\n" +
-                "                            HttpSystemLogging=\"false\"\n" +
-                "                            RemoteDiscovery=\"false\"\n" +
-                "                            SystemBackup=\"false\"\n" +
-                "                            SystemLogging=\"false\" />\n" +
-                "                    </tds:Capabilities>\n" +
-                "                </tds:Capabilities>\n" +
-                "                <tds:Version>\n" +
-                "                    <tt:Major>1</tt:Major>\n" +
-                "                    <tt:Minor>70</tt:Minor>\n" +
-                "                </tds:Version>\n" +
-                "            </tds:Service>\n" +
-                "            <tds:Service>\n" +
-                "                <tds:Namespace>http://www.onvif.org/ver10/events/wsdl</tds:Namespace>\n" +
-                "                <tds:XAddr>http://" + localIpAddress + ":8081:8081/event/evtservice</tds:XAddr>\n" +
-                "                <tds:Capabilities>\n" +
-                "                    <tev:Capabilities\n" +
-                "                        MaxNotificationProducers=\"6\"\n" +
-                "                        MaxPullPoints=\"2\"\n" +
-                "                        PersistentNotificationStorage=\"false\"\n" +
-                "                        WSPausableSubscriptionManagerInterfaceSupport=\"false\"\n" +
-                "                        WSPullPointSupport=\"false\"\n" +
-                "                        WSSubscriptionPolicySupport=\"false\" />\n" +
-                "                </tds:Capabilities>\n" +
-                "                <tds:Version>\n" +
-                "                    <tt:Major>1</tt:Major>\n" +
-                "                    <tt:Minor>70</tt:Minor>\n" +
-                "                </tds:Version>\n" +
-                "            </tds:Service>\n" +
-                "            <tds:Service>\n" +
-                "                <tds:Namespace>http://www.onvif.org/ver20/imaging/wsdl</tds:Namespace>\n" +
-                "                <tds:XAddr>http://" + localIpAddress + ":8081/onvif/imaging</tds:XAddr>\n" +
-                "                <tds:Capabilities>\n" +
-                "                    <timg:Capabilities ImageStabilization=\"false\" />\n" +
-                "                </tds:Capabilities>\n" +
-                "                <tds:Version>\n" +
-                "                    <tt:Major>2</tt:Major>\n" +
-                "                    <tt:Minor>30</tt:Minor>\n" +
-                "                </tds:Version>\n" +
-                "            </tds:Service>\n" +
-                "            <tds:Service>\n" +
-                "                <tds:Namespace>http://www.onvif.org/ver10/media/wsdl</tds:Namespace>\n" +
-                "                <tds:XAddr>http://" + localIpAddress + ":8081:8081/onvif/media</tds:XAddr>\n" +
-                "                <tds:Capabilities>\n" +
-                "                    <trt:Capabilities\n" +
-                "                        OSD=\"false\"\n" +
-                "                        Rotation=\"false\"\n" +
-                "                        SnapshotUri=\"true\"\n" +
-                "                        VideoSourceMode=\"false\">\n" +
-                "                        <trt:ProfileCapabilities MaximumNumberOfProfiles=\"10\" />\n" +
-                "                        <trt:StreamingCapabilities\n" +
-                "                            NoRTSPStreaming=\"false\"\n" +
-                "                            NonAggregateControl=\"false\"\n" +
-                "                            RTPMulticast=\"false\"\n" +
-                "                            RTP_RTSP_TCP=\"true\"\n" +
-                "                            RTP_TCP=\"false\" />\n" +
-                "                    </trt:Capabilities>\n" +
-                "                </tds:Capabilities>\n" +
-                "                <tds:Version>\n" +
-                "                    <tt:Major>1</tt:Major>\n" +
-                "                    <tt:Minor>70</tt:Minor>\n" +
-                "                </tds:Version>\n" +
-                "            </tds:Service>\n" +
-                "            <tds:Service>\n" +
-                "                <tds:Namespace>http://www.onvif.org/ver20/ptz/wsdl</tds:Namespace>\n" +
-                "                <tds:XAddr>http://" + localIpAddress + ":8081:8081/onvif/ptz</tds:XAddr>\n" +
-                "                <tds:Capabilities>\n" +
-                "                    <tptz:Capabilities\n" +
-                "                        EFlip=\"false\"\n" +
-                "                        GetCompatibleConfigurations=\"false\"\n" +
-                "                        Reverse=\"false\" />\n" +
-                "                </tds:Capabilities>\n" +
-                "                <tds:Version>\n" +
-                "                    <tt:Major>2</tt:Major>\n" +
-                "                    <tt:Minor>50</tt:Minor>\n" +
-                "                </tds:Version>\n" +
-                "            </tds:Service>\n" +
-                "        </tds:GetServicesResponse>\n" +
-                "    </s:Body>\n" +
+                "xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\"\n" +
+                "xmlns:tev=\"http://www.onvif.org/ver10/events/wsdl\"\n" +
+                "xmlns:timg=\"http://www.onvif.org/ver20/imaging/wsdl\"\n" +
+                "xmlns:tptz=\"http://www.onvif.org/ver20/ptz/wsdl\"\n" +
+                "xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\"\n" +
+                "xmlns:tt=\"http://www.onvif.org/ver10/schema\">\n" +
+                "<s:Body>\n" +
+                "<tds:GetServicesResponse>\n" +
+                "<tds:Service>\n" +
+                "<tds:Namespace>http://www.onvif.org/ver10/device/wsdl</tds:Namespace>\n" +
+                "<tds:XAddr>http://" + localIpAddress + ":8080/onvif/device_service</tds:XAddr>\n" +
+                "<tds:Capabilities>\n" +
+                "<tds:Capabilities>\n" +
+                "<tds:Network\n" +
+                "DHCPv6=\"false\"\n" +
+                "Dot11Configuration=\"false\"\n" +
+                "Dot1XConfigurations=\"0\"\n" +
+                "DynDNS=\"false\"\n" +
+                "HostnameFromDHCP=\"true\"\n" +
+                "IPFilter=\"true\"\n" +
+                "IPVersion6=\"false\"\n" +
+                "NTP=\"1\"\n" +
+                "ZeroConfiguration=\"true\" />\n" +
+                "<tds:Security\n" +
+                "AccessPolicyConfig=\"true\"\n" +
+                "DefaultAccessPolicy=\"false\"\n" +
+                "Dot1X=\"false\"\n" +
+                "HttpDigest=\"false\"\n" +
+                "KerberosToken=\"false\"\n" +
+                "MaxUsers=\"10\"\n" +
+                "OnboardKeyGeneration=\"false\"\n" +
+                "RELToken=\"false\"\n" +
+                "RemoteUserHandling=\"false\"\n" +
+                "SAMLToken=\"false\"\n" +
+                "TLS1.0=\"false\"\n" +
+                "TLS1.1=\"false\"\n" +
+                "TLS1.2=\"false\"\n" +
+                "UsernameToken=\"true\"\n" +
+                "X.509Token=\"false\" />\n" +
+                "<tds:System\n" +
+                "DiscoveryBye=\"true\"\n" +
+                "DiscoveryResolve=\"true\"\n" +
+                "FirmwareUpgrade=\"false\"\n" +
+                "HttpFirmwareUpgrade=\"false\"\n" +
+                "HttpSupportInformation=\"false\"\n" +
+                "HttpSystemBackup=\"false\"\n" +
+                "HttpSystemLogging=\"false\"\n" +
+                "RemoteDiscovery=\"false\"\n" +
+                "SystemBackup=\"false\"\n" +
+                "SystemLogging=\"false\" />\n" +
+                "</tds:Capabilities>\n" +
+                "</tds:Capabilities>\n" +
+                "<tds:Version>\n" +
+                "<tt:Major>1</tt:Major>\n" +
+                "<tt:Minor>70</tt:Minor>\n" +
+                "</tds:Version>\n" +
+                "</tds:Service>\n" +
+                "<tds:Service>\n" +
+                "<tds:Namespace>http://www.onvif.org/ver10/events/wsdl</tds:Namespace>\n" +
+                "<tds:XAddr>http://" + localIpAddress + ":8080/event/evtservice</tds:XAddr>\n" +
+                "<tds:Capabilities>\n" +
+                "<tev:Capabilities\n" +
+                "MaxNotificationProducers=\"6\"\n" +
+                "MaxPullPoints=\"2\"\n" +
+                "PersistentNotificationStorage=\"false\"\n" +
+                "WSPausableSubscriptionManagerInterfaceSupport=\"false\"\n" +
+                "WSPullPointSupport=\"false\"\n" +
+                "WSSubscriptionPolicySupport=\"false\" />\n" +
+                "</tds:Capabilities>\n" +
+                "<tds:Version>\n" +
+                "<tt:Major>1</tt:Major>\n" +
+                "<tt:Minor>70</tt:Minor>\n" +
+                "</tds:Version>\n" +
+                "</tds:Service>\n" +
+                "<tds:Service>\n" +
+                "<tds:Namespace>http://www.onvif.org/ver20/imaging/wsdl</tds:Namespace>\n" +
+                "<tds:XAddr>http://" + localIpAddress + ":8080/onvif/imaging</tds:XAddr>\n" +
+                "<tds:Capabilities>\n" +
+                "<timg:Capabilities ImageStabilization=\"false\" />\n" +
+                "</tds:Capabilities>\n" +
+                "<tds:Version>\n" +
+                "<tt:Major>2</tt:Major>\n" +
+                "<tt:Minor>30</tt:Minor>\n" +
+                "</tds:Version>\n" +
+                "</tds:Service>\n" +
+                "<tds:Service>\n" +
+                "<tds:Namespace>http://www.onvif.org/ver10/media/wsdl</tds:Namespace>\n" +
+                "<tds:XAddr>http://" + localIpAddress + ":8080/onvif/media</tds:XAddr>\n" +
+                "<tds:Capabilities>\n" +
+                "<trt:Capabilities\n" +
+                "OSD=\"false\"\n" +
+                "Rotation=\"false\"\n" +
+                "SnapshotUri=\"true\"\n" +
+                "VideoSourceMode=\"false\">\n" +
+                "<trt:ProfileCapabilities MaximumNumberOfProfiles=\"10\" />\n" +
+                "<trt:StreamingCapabilities\n" +
+                "NoRTSPStreaming=\"false\"\n" +
+                "NonAggregateControl=\"false\"\n" +
+                "RTPMulticast=\"false\"\n" +
+                "RTP_RTSP_TCP=\"true\"\n" +
+                "RTP_TCP=\"false\" />\n" +
+                "</trt:Capabilities>\n" +
+                "</tds:Capabilities>\n" +
+                "<tds:Version>\n" +
+                "<tt:Major>1</tt:Major>\n" +
+                "<tt:Minor>70</tt:Minor>\n" +
+                "</tds:Version>\n" +
+                "</tds:Service>\n" +
+                "<tds:Service>\n" +
+                "<tds:Namespace>http://www.onvif.org/ver20/ptz/wsdl</tds:Namespace>\n" +
+                "<tds:XAddr>http://" + localIpAddress + ":8080/onvif/ptz</tds:XAddr>\n" +
+                "<tds:Capabilities>\n" +
+                "<tptz:Capabilities\n" +
+                "EFlip=\"false\"\n" +
+                "GetCompatibleConfigurations=\"false\"\n" +
+                "Reverse=\"false\" />\n" +
+                "</tds:Capabilities>\n" +
+                "<tds:Version>\n" +
+                "<tt:Major>2</tt:Major>\n" +
+                "<tt:Minor>50</tt:Minor>\n" +
+                "</tds:Version>\n" +
+                "</tds:Service>\n" +
+                "</tds:GetServicesResponse>\n" +
+                "</s:Body>\n" +
                 "</s:Envelope>\n";
 
         return responseContent;
@@ -338,17 +431,16 @@ public class ModOnvifServer implements HttpRequestHandler {
                 serialNum, hardwareID));
 
         String response = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<env:Envelope xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\"\n" +
-                "    xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\">\n" +
-                "    <env:Body>\n" +
-                "        <tds:GetDeviceInformationResponse>\n" +
-                "            <tds:Manufacturer>" + manufacture + "</tds:Manufacturer>\n" +
-                "            <tds:Model>" + model + "</tds:Model>\n" +
-                "            <tds:FirmwareVersion>" + firmwareVersion + "</tds:FirmwareVersion>\n" +
-                "            <tds:SerialNumber>" + serialNum + "</tds:SerialNumber>\n" +
-                "            <tds:HardwareId>" + hardwareID + "</tds:HardwareId>\n" +
-                "        </tds:GetDeviceInformationResponse>\n" +
-                "    </env:Body>\n" +
+                "<env:Envelope xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\">\n" +
+                "<env:Body>\n" +
+                "<tds:GetDeviceInformationResponse>\n" +
+                "<tds:Manufacturer>" + manufacture + "</tds:Manufacturer>\n" +
+                "<tds:Model>" + model + "</tds:Model>\n" +
+                "<tds:FirmwareVersion>" + firmwareVersion + "</tds:FirmwareVersion>\n" +
+                "<tds:SerialNumber>" + serialNum + "</tds:SerialNumber>\n" +
+                "<tds:HardwareId>" + hardwareID + "</tds:HardwareId>\n" +
+                "</tds:GetDeviceInformationResponse>\n" +
+                "</env:Body>\n" +
                 "</env:Envelope>";
 
         return response;
@@ -361,53 +453,53 @@ public class ModOnvifServer implements HttpRequestHandler {
         // 关于分辨率的信息，应该从RtspServer当中动态获取
         String response = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<env:Envelope xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\"\n" +
-                "    xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\"\n" +
-                "    xmlns:tt=\"http://www.onvif.org/ver10/schema\">\n" +
-                "    <env:Body>\n" +
-                "        <trt:GetProfilesResponse>\n" +
-                "            <trt:Profiles\n" +
-                "                fixed=\"false\"\n" +
-                "                token=\"Profile1\">\n" +
-                "                <tt:Name>Profile1</tt:Name>\n" +
-                "                <tt:VideoSourceConfiguration token=\"VideoSourceConfiguration0_0\">\n" +
-                "                    <tt:Name>VideoSourceConfiguration0_0</tt:Name>\n" +
-                "                    <tt:UseCount>1</tt:UseCount>\n" +
-                "                    <tt:SourceToken>VideoSource0</tt:SourceToken>\n" +
-                "                    <tt:Bounds\n" +
-                "                        height=\"" + videoHeight + "\"\n" +
-                "                        width=\"" + videoWidth + "\"\n" +
-                "                        x=\"0\"\n" +
-                "                        y=\"0\" />\n" +
-                "                </tt:VideoSourceConfiguration>\n" +
-                "                <tt:VideoEncoderConfiguration token=\"VideoEncoderConfiguration0_0\">\n" +
-                "                    <tt:Name>VideoEncoderConfiguration0_0</tt:Name>\n" +
-                "                    <tt:UseCount>3683892</tt:UseCount>\n" +
-                "                    <tt:Encoding>H264</tt:Encoding>\n" +
-                "                    <tt:Resolution>\n" +
-                "                        <tt:Width>" + videoWidth + "</tt:Width>\n" +
-                "                        <tt:Height>" + videoHeight + "</tt:Height>\n" +
-                "                    </tt:Resolution>\n" +
-                "                    <tt:Quality>44.0</tt:Quality>\n" +
-                "                    <tt:RateControl>\n" +
-                "                        <tt:FrameRateLimit>5</tt:FrameRateLimit>\n" +
-                "                        <tt:EncodingInterval>1</tt:EncodingInterval>\n" +
-                "                        <tt:BitrateLimit>" + bitRate + "</tt:BitrateLimit>\n" +
-                "                    </tt:RateControl>\n" +
-                "                    <tt:Multicast>\n" +
-                "                        <tt:Address>\n" +
-                "                            <tt:Type>IPv4</tt:Type>\n" +
-                "                            <tt:IPv4Address>0.0.0.0</tt:IPv4Address>\n" +
-                "                            <tt:IPv6Address />\n" +
-                "                        </tt:Address>\n" +
-                "                        <tt:Port>0</tt:Port>\n" +
-                "                        <tt:TTL>0</tt:TTL>\n" +
-                "                        <tt:AutoStart>false</tt:AutoStart>\n" +
-                "                    </tt:Multicast>\n" +
-                "                    <tt:SessionTimeout>PT30S</tt:SessionTimeout>\n" +
-                "                </tt:VideoEncoderConfiguration>\n" +
-                "            </trt:Profiles>\n" +
-                "        </trt:GetProfilesResponse>\n" +
-                "    </env:Body>\n" +
+                "xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\"\n" +
+                "xmlns:tt=\"http://www.onvif.org/ver10/schema\">\n" +
+                "<env:Body>\n" +
+                "<trt:GetProfilesResponse>\n" +
+                "<trt:Profiles\n" +
+                "fixed=\"false\"\n" +
+                "token=\"Profile1\">\n" +
+                "<tt:Name>Profile1</tt:Name>\n" +
+                "<tt:VideoSourceConfiguration token=\"VideoSourceConfiguration0_0\">\n" +
+                "<tt:Name>VideoSourceConfiguration0_0</tt:Name>\n" +
+                "<tt:UseCount>1</tt:UseCount>\n" +
+                "<tt:SourceToken>VideoSource0</tt:SourceToken>\n" +
+                "<tt:Bounds\n" +
+                "height=\"" + videoHeight + "\"\n" +
+                "width=\"" + videoWidth + "\"\n" +
+                "x=\"0\"\n" +
+                "y=\"0\" />\n" +
+                "</tt:VideoSourceConfiguration>\n" +
+                "<tt:VideoEncoderConfiguration token=\"VideoEncoderConfiguration0_0\">\n" +
+                "<tt:Name>VideoEncoderConfiguration0_0</tt:Name>\n" +
+                "<tt:UseCount>3683892</tt:UseCount>\n" +
+                "<tt:Encoding>H264</tt:Encoding>\n" +
+                "<tt:Resolution>\n" +
+                "<tt:Width>" + videoWidth + "</tt:Width>\n" +
+                "<tt:Height>" + videoHeight + "</tt:Height>\n" +
+                "</tt:Resolution>\n" +
+                "<tt:Quality>44.0</tt:Quality>\n" +
+                "<tt:RateControl>\n" +
+                "<tt:FrameRateLimit>5</tt:FrameRateLimit>\n" +
+                "<tt:EncodingInterval>1</tt:EncodingInterval>\n" +
+                "<tt:BitrateLimit>" + bitRate + "</tt:BitrateLimit>\n" +
+                "</tt:RateControl>\n" +
+                "<tt:Multicast>\n" +
+                "<tt:Address>\n" +
+                "<tt:Type>IPv4</tt:Type>\n" +
+                "<tt:IPv4Address>0.0.0.0</tt:IPv4Address>\n" +
+                "<tt:IPv6Address />\n" +
+                "</tt:Address>\n" +
+                "<tt:Port>0</tt:Port>\n" +
+                "<tt:TTL>0</tt:TTL>\n" +
+                "<tt:AutoStart>false</tt:AutoStart>\n" +
+                "</tt:Multicast>\n" +
+                "<tt:SessionTimeout>PT30S</tt:SessionTimeout>\n" +
+                "</tt:VideoEncoderConfiguration>\n" +
+                "</trt:Profiles>\n" +
+                "</trt:GetProfilesResponse>\n" +
+                "</env:Body>\n" +
                 "</env:Envelope>";
 
         return response;
@@ -415,7 +507,7 @@ public class ModOnvifServer implements HttpRequestHandler {
 
     /**
      * @param rtspUrl 用于观看视频直播的rtsp地址，例如对于Ocular应用来说，他返回给IPCamera-Viewer
-     *                的地址就是:rtsp://172.16.0.50:8081:8081/h264
+     *                的地址就是:rtsp://172.16.0.50:8086
      *                当然不同的应用可以定义不同格式的地址.
      * @return 返回给客户端用于播放rtsp直播视频流的url
      */
@@ -423,19 +515,17 @@ public class ModOnvifServer implements HttpRequestHandler {
         Log.d(TAG, "the stream uri return to client are : " + rtspUrl);
 
         String response = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<env:Envelope xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\"\n" +
-                "    xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\"\n" +
-                "    xmlns:tt=\"http://www.onvif.org/ver10/schema\">\n" +
-                "    <env:Body>\n" +
-                "        <trt:GetStreamUriResponse>\n" +
-                "            <trt:MediaUri>\n" +
-                "                <tt:Uri>" + rtspUrl + "</tt:Uri>\n" +
-                "                <tt:InvalidAfterConnect>false</tt:InvalidAfterConnect>\n" +
-                "                <tt:InvalidAfterReboot>false</tt:InvalidAfterReboot>\n" +
-                "                <tt:Timeout>P1Y</tt:Timeout>\n" +
-                "            </trt:MediaUri>\n" +
-                "        </trt:GetStreamUriResponse>\n" +
-                "    </env:Body>\n" +
+                "<env:Envelope xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\" xmlns:tt=\"http://www.onvif.org/ver10/schema\">\n" +
+                "<env:Body>\n" +
+                "<trt:GetStreamUriResponse>\n" +
+                "<trt:MediaUri>\n" +
+                "<tt:Uri>" + rtspUrl + "</tt:Uri>\n" +
+                "<tt:InvalidAfterConnect>false</tt:InvalidAfterConnect>\n" +
+                "<tt:InvalidAfterReboot>false</tt:InvalidAfterReboot>\n" +
+                "<tt:Timeout>P1Y</tt:Timeout>\n" +
+                "</trt:MediaUri>\n" +
+                "</trt:GetStreamUriResponse>\n" +
+                "</env:Body>\n" +
                 "</env:Envelope>";
 
         return response;
@@ -491,7 +581,6 @@ public class ModOnvifServer implements HttpRequestHandler {
         return response;
     }
 
-
     /**
      * construct the GetCapabilities response
      *
@@ -507,7 +596,7 @@ public class ModOnvifServer implements HttpRequestHandler {
                 "<tds:GetCapabilitiesResponse>\n" +
                 "<tds:Capabilities>\n" +
                 "<tt:Device>\n" +
-                "<tt:XAddr>http://" + serverIpAddress + "/onvif/services</tt:XAddr>\n" +
+                "<tt:XAddr>http://" + serverIpAddress + ":8080/onvif/services</tt:XAddr>\n" +
                 "<tt:Network>\n" +
                 "<tt:IPFilter>true</tt:IPFilter>\n" +
                 "<tt:ZeroConfiguration>true</tt:ZeroConfiguration>\n" +
@@ -542,14 +631,14 @@ public class ModOnvifServer implements HttpRequestHandler {
                 "</tt:Security>\n" +
                 "</tt:Device>\n" +
                 "<tt:Events>\n" +
-                "<tt:XAddr>http://" + serverIpAddress + "/onvif/services</tt:XAddr>\n" +
+                "<tt:XAddr>http://" + serverIpAddress + ":8080/onvif/services</tt:XAddr>\n" +
                 "<tt:WSSubscriptionPolicySupport>false</tt:WSSubscriptionPolicySupport>\n" +
                 "<tt:WSPullPointSupport>false</tt:WSPullPointSupport>\n" +
                 "<tt:WSPausableSubscriptionManagerInterfaceSupport>false\n" +
                 "</tt:WSPausableSubscriptionManagerInterfaceSupport>\n" +
                 "</tt:Events>\n" +
                 "<tt:Media>\n" +
-                "<tt:XAddr>http://" + serverIpAddress + "/onvif/services</tt:XAddr>\n" +
+                "<tt:XAddr>http://" + serverIpAddress + ":8080/onvif/services</tt:XAddr>\n" +
                 "<tt:StreamingCapabilities>\n" +
                 "<tt:RTPMulticast>false</tt:RTPMulticast>\n" +
                 "<tt:RTP_TCP>true</tt:RTP_TCP>\n" +
@@ -560,6 +649,131 @@ public class ModOnvifServer implements HttpRequestHandler {
                 "</tds:GetCapabilitiesResponse>\n" +
                 "</SOAP-ENV:Body>\n" +
                 "</SOAP-ENV:Envelope>";
+
+        return response;
+    }
+
+    /**
+     * construct the SetSystemDateAndTime response
+     * and we need to parse out the date, hour, seconds, year, month, day that
+     * the client provided.
+     *
+     * @return the SetSystemDateAndTime response
+     */
+    private String constructOnvifSetSystemDateAndTimeResponse(boolean setupResult) {
+        Log.d(TAG, "handle the response of SetSystemDateAndTime request with setup success ? " + setupResult);
+        String response;
+        if (setupResult) {
+            // setup success
+            response = "<?xml version='1.0' encoding='utf-8'?>\n" +
+                    "<soapenv:Envelope xmlns:soapenv=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\">\n" +
+                    "<soapenv:Body>\n" +
+                    "<tds:SetSystemDateAndTimeResponse />\n" +
+                    "</soapenv:Body>\n" +
+                    "</soapenv:Envelope>";
+        } else {
+            // setup failed
+            // we do not support this SetSystemDateAndTime action
+            response = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                    "<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:wsa=\"http://schemas.xmlsoap.org/ws/2004/08/addressing\">\n" +
+                    "<SOAP-ENV:Header>\n" +
+                    "<wsa:To SOAP-ENV:mustUnderstand=\"true\">\n" +
+                    "http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous\n" +
+                    "</wsa:To>\n" +
+                    "<wsa:Action SOAP-ENV:mustUnderstand=\"true\">\n" +
+                    "http://schemas.xmlsoap.org/ws/2004/08/addressing/fault\n" +
+                    "</wsa:Action>\n" +
+                    "</SOAP-ENV:Header>\n" +
+                    "<SOAP-ENV:Body>\n" +
+                    "<SOAP-ENV:Fault SOAP-ENV:encodingStyle=\"http://www.w3.org/2003/05/soap-encoding\">\n" +
+                    "<SOAP-ENV:Code>\n" +
+                    "<SOAP-ENV:Value>SOAP-ENV:Sender</SOAP-ENV:Value>\n" +
+                    "<SOAP-ENV:Subcode>\n" +
+                    "<SOAP-ENV:Value>wsa:ActionNotSupported</SOAP-ENV:Value>\n" +
+                    "</SOAP-ENV:Subcode>\n" +
+                    "</SOAP-ENV:Code>\n" +
+                    "<SOAP-ENV:Reason>\n" +
+                    "<SOAP-ENV:Text xml:lang=\"en\">The [action] cannot be processed at the receiver.\n" +
+                    "</SOAP-ENV:Text>\n" +
+                    "</SOAP-ENV:Reason>\n" +
+                    "<SOAP-ENV:Detail>http://www.onvif.org/ver10/device/wsdl/GetServices</SOAP-ENV:Detail>\n" +
+                    "</SOAP-ENV:Fault>\n" +
+                    "</SOAP-ENV:Body>\n" +
+                    "</SOAP-ENV:Envelope>";
+        }
+
+        return response;
+    }
+
+    private String constructOnvifGetVideoEncoderConfigurationOptionsResponse(int width, int height) {
+        Log.d(TAG, "construct response of GetVideoEncoderConfigurationOptionsResponse request with" +
+                "width of " + width + ", and height of " + height);
+
+        String response = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\" xmlns:tt=\"http://www.onvif.org/ver10/schema\">\n" +
+                "<SOAP-ENV:Body>\n" +
+                "<trt:GetVideoEncoderConfigurationOptionsResponse>\n" +
+                "<trt:Options>\n" +
+                "<tt:QualityRange>\n" +
+                "<tt:Min>1</tt:Min>\n" +
+                "<tt:Max>10</tt:Max>\n" +
+                "</tt:QualityRange>\n" +
+                "<tt:JPEG>\n" +
+                "<tt:ResolutionsAvailable>\n" +
+                "<tt:Width>" + width + "</tt:Width>\n" +
+                "<tt:Height>" + height + "</tt:Height>\n" +
+                "</tt:ResolutionsAvailable>\n" +
+                "<tt:FrameRateRange>\n" +
+                "<tt:Min>10</tt:Min>\n" +
+                "<tt:Max>15</tt:Max>\n" +
+                "</tt:FrameRateRange>\n" +
+                "<tt:EncodingIntervalRange>\n" +
+                "<tt:Min>1</tt:Min>\n" +
+                "<tt:Max>1</tt:Max>\n" +
+                "</tt:EncodingIntervalRange>\n" +
+                "</tt:JPEG>\n" +
+                "<tt:Extension>\n" +
+                "<tt:JPEG>\n" +
+                "<tt:BitrateRange>\n" +
+                "<tt:Min>134000</tt:Min>\n" +
+                "<tt:Max>135000</tt:Max>\n" +
+                "</tt:BitrateRange>\n" +
+                "</tt:JPEG>\n" +
+                "</tt:Extension>\n" +
+                "</trt:Options>\n" +
+                "</trt:GetVideoEncoderConfigurationOptionsResponse>\n" +
+                "</SOAP-ENV:Body>\n" +
+                "</SOAP-ENV:Envelope>";
+
+        return response;
+    }
+
+    private String constructOnvifCreateOSDResponse(String newlyCreatedOSDToken) {
+        Log.d(TAG, "construct the response of CreateOSD request with newly created OSDToken " + newlyCreatedOSDToken);
+        String response = "<?xml version='1.0' encoding='utf-8'?>\n" +
+                "<soapenv:Envelope xmlns:soapenv=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\">\n" +
+                "<soapenv:Body>\n" +
+                "<tds:CreateOSDResponse>\n" +
+                "<tds:OSDToken>" + newlyCreatedOSDToken + "</tds:OSDToken>\n" +
+                "</tds:CreateOSDResponse>\n" +
+                "</soapenv:Body>\n" +
+                "</soapenv:Envelope>";
+
+        return response;
+    }
+
+    /**
+     * @return the response of SetOSD request
+     */
+    private String constructOnvifSetOSDResponse() {
+        Log.d(TAG, "construct the response of SetOSD request with ");
+
+        String response = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<soapenv:Envelope xmlns:soapenv=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\" xmlns:tt=\"http://www.onvif.org/ver10/schema\">\n" +
+                "<soapenv:Body>\n" +
+                "<tds:SetOSDResponse />\n" +
+                "</soapenv:Body>\n" +
+                "</soapenv:Envelope>";
 
         return response;
     }
