@@ -77,6 +77,8 @@ public class ModOnvifServer implements HttpRequestHandler {
         mRtspServerPort = DEFAULT_RTSP_PORT;
     }
 
+    private int clientRequiredHour, clientRequiredMinute, clientRequiredSecond, clientRequiredYear, clientRequiredMonth, clientRequiredDay = 0;
+
     @Override
     public void handle(HttpRequest httpRequest, HttpResponse httpResponse, HttpContext httpContext) throws HttpException, IOException {
         AbstractHttpEntity body;
@@ -140,8 +142,27 @@ public class ModOnvifServer implements HttpRequestHandler {
                 TimeZone timeZone = TimeZone.getDefault();
                 String timeZoneName = timeZone.getDisplayName(Locale.US) + timeZone.getID();
 
+//                if (clientRequiredYear == 0) {
+//                    clientRequiredYear = year;
+//                }
+//                if (clientRequiredMonth == 0) {
+//                    clientRequiredMonth = month;
+//                }
+//                if (clientRequiredDay == 0) {
+//                    clientRequiredDay = day;
+//                }
+//                if (clientRequiredHour == 0) {
+//                    clientRequiredHour = hour;
+//                }
+//                if (clientRequiredMinute == 0) {
+//                    clientRequiredMinute = minutes;
+//                }
+//                if (clientRequiredSecond == 0) {
+//                    clientRequiredSecond = seconds;
+//                }
+
                 String getSystemDateNTimeResponse = constructOnvifGetSystemDateNTimeResponse(timeZoneName,
-                        year, month, day, hour, minutes, seconds);
+                        hour, minutes, seconds, year, month, day);
                 byte[] responseContentByteArr = getSystemDateNTimeResponse.getBytes("UTF-8");
                 InputStream servicesResponseInputStream = new ByteArrayInputStream(responseContentByteArr);
                 body = new InputStreamEntity(servicesResponseInputStream, responseContentByteArr.length);
@@ -169,6 +190,14 @@ public class ModOnvifServer implements HttpRequestHandler {
                     int clientYear = Integer.parseInt(reqHeader.getYear());
                     int clientMonth = Integer.parseInt(reqHeader.getMonth());
                     int clientDay = Integer.parseInt(reqHeader.getDay());
+                    // TODO: we store these values, and use for the corresponding GetSystemDateAndTime request
+//                    clientRequiredYear = clientYear;
+//                    clientRequiredMonth = clientMonth;
+//                    clientRequiredDay = clientDay;
+//                    clientRequiredMinute = clientMinute;
+//                    clientRequiredHour = clientHour;
+//                    clientRequiredSecond = clientSecond;
+
                     // and we using the client provided time to sync current device's time
                     // but if we are not system app, then we will do not have permission to setup system date
                     // and time
@@ -184,7 +213,9 @@ public class ModOnvifServer implements HttpRequestHandler {
                     Log.e(TAG, "Exception happened while setup the system date and time");
                 }
 
-                String setDateAndTimeResponse = constructOnvifSetSystemDateAndTimeResponse(true);
+                // TODO: as we do not have the permission to setup system date and time, so we just
+                // returns true, and make cheat on the onvif client
+                String setDateAndTimeResponse = constructOnvifSetSystemDateAndTimeResponse(setupResult);
                 byte[] responseContentByteArr = setDateAndTimeResponse.getBytes("UTF-8");
                 InputStream responseInputStream = new ByteArrayInputStream(responseContentByteArr);
                 body = new InputStreamEntity(responseInputStream, responseContentByteArr.length);
