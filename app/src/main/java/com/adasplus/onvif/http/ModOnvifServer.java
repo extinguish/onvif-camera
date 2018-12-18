@@ -483,55 +483,150 @@ public class ModOnvifServer implements HttpRequestHandler {
         // TODO: 这里的信息需要更加准确的控制
         // 关于分辨率的信息，应该从RtspServer当中动态获取
         String response = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<env:Envelope xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\"\n" +
-                "xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\"\n" +
-                "xmlns:tt=\"http://www.onvif.org/ver10/schema\">\n" +
-                "<env:Body>\n" +
+                "<SOAP-ENV:Envelope xmlns:SOAP-ENC=\"http://www.w3.org/2003/05/soap-encoding\" xmlns:SOAP-ENV=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:c14n=\"http://www.w3.org/2001/10/xml-exc-c14n#\" xmlns:chan=\"http://schemas.microsoft.com/ws/2005/02/duplex\" xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\" xmlns:saml1=\"urn:oasis:names:tc:SAML:1.0:assertion\" xmlns:saml2=\"urn:oasis:names:tc:SAML:2.0:assertion\" xmlns:tdn=\"http://www.onvif.org/ver10/network/wsdl\" xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\" xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\" xmlns:tt=\"http://www.onvif.org/ver10/schema\" xmlns:wsa=\"http://schemas.xmlsoap.org/ws/2004/08/addressing\" xmlns:wsa5=\"http://www.w3.org/2005/08/addressing\" xmlns:wsc=\"http://docs.oasis-open.org/ws-sx/ws-secureconversation/200512\" xmlns:wsdd=\"http://schemas.xmlsoap.org/ws/2005/04/discovery\" xmlns:wsnt=\"http://docs.oasis-open.org/wsn/b-2\" xmlns:wsrfbf=\"http://docs.oasis-open.org/wsrf/bf-2\" xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wstop=\"http://docs.oasis-open.org/wsn/t-1\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\" xmlns:xenc=\"http://www.w3.org/2001/04/xmlenc#\" xmlns:xmime=\"http://tempuri.org/xmime.xsd\" xmlns:xop=\"http://www.w3.org/2004/08/xop/include\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n" +
+                "<SOAP-ENV:Body>\n" +
                 "<trt:GetProfilesResponse>\n" +
-                "<trt:Profiles\n" +
-                "fixed=\"false\"\n" +
-                "token=\"Profile1\">\n" +
-                "<tt:Name>Profile1</tt:Name>\n" +
-                "<tt:VideoSourceConfiguration token=\"VideoSourceConfiguration0_0\">\n" +
-                "<tt:Name>VideoSourceConfiguration0_0</tt:Name>\n" +
-                "<tt:UseCount>1</tt:UseCount>\n" +
-                "<tt:SourceToken>VideoSource0</tt:SourceToken>\n" +
-                "<tt:Bounds\n" +
-                "height=\"" + videoHeight + "\"\n" +
-                "width=\"" + videoWidth + "\"\n" +
-                "x=\"0\"\n" +
-                "y=\"0\" />\n" +
+                "<trt:Profiles fixed=\"false\" token=\"profile1\">\n" +
+                "<tt:Name>profile1</tt:Name>\n" +
+                "<tt:VideoSourceConfiguration token=\"source_config\">\n" +
+                "<tt:Name>stream1_main</tt:Name>\n" +
+                "<tt:UseCount>2</tt:UseCount>\n" +
+                "<tt:SourceToken>VideoSource1</tt:SourceToken>\n" +
+                "<tt:Bounds height=\"" + videoHeight + "\" width=\"" + videoWidth + "\" x=\"0\" y=\"0\"></tt:Bounds>\n" +
                 "</tt:VideoSourceConfiguration>\n" +
-                "<tt:VideoEncoderConfiguration token=\"VideoEncoderConfiguration0_0\">\n" +
-                "<tt:Name>VideoEncoderConfiguration0_0</tt:Name>\n" +
-                "<tt:UseCount>3683892</tt:UseCount>\n" +
+                "<tt:AudioSourceConfiguration token=\"AudioSourceConfigToken\">\n" +
+                "<tt:Name>AudioSourceConfig</tt:Name>\n" +
+                "<tt:UseCount>2</tt:UseCount>\n" +
+                "<tt:SourceToken>AudioSourceChannel</tt:SourceToken>\n" +
+                "</tt:AudioSourceConfiguration>\n" +
+                "<tt:VideoEncoderConfiguration token=\"encoder_config\">\n" +
+                "<tt:Name>encoder_config</tt:Name>\n" +
+                "<tt:UseCount>2</tt:UseCount>\n" +
                 "<tt:Encoding>H264</tt:Encoding>\n" +
                 "<tt:Resolution>\n" +
                 "<tt:Width>" + videoWidth + "</tt:Width>\n" +
                 "<tt:Height>" + videoHeight + "</tt:Height>\n" +
                 "</tt:Resolution>\n" +
-                "<tt:Quality>44.0</tt:Quality>\n" +
+                "<tt:Quality>2</tt:Quality>\n" +
                 "<tt:RateControl>\n" +
-                "<tt:FrameRateLimit>5</tt:FrameRateLimit>\n" +
-                "<tt:EncodingInterval>1</tt:EncodingInterval>\n" +
+                "<tt:FrameRateLimit>" + 15 + "</tt:FrameRateLimit>\n" +
+                "<tt:EncodingInterval>0</tt:EncodingInterval>\n" +
                 "<tt:BitrateLimit>" + bitRate + "</tt:BitrateLimit>\n" +
                 "</tt:RateControl>\n" +
+                "<tt:H264>\n" +
+                "<tt:GovLength>0</tt:GovLength>\n" +
+                "<tt:H264Profile>Baseline</tt:H264Profile>\n" +
+                "</tt:H264>\n" +
                 "<tt:Multicast>\n" +
                 "<tt:Address>\n" +
                 "<tt:Type>IPv4</tt:Type>\n" +
                 "<tt:IPv4Address>0.0.0.0</tt:IPv4Address>\n" +
-                "<tt:IPv6Address />\n" +
                 "</tt:Address>\n" +
-                "<tt:Port>0</tt:Port>\n" +
-                "<tt:TTL>0</tt:TTL>\n" +
+                "<tt:Port>6601</tt:Port>\n" +
+                "<tt:TTL>64</tt:TTL>\n" +
                 "<tt:AutoStart>false</tt:AutoStart>\n" +
                 "</tt:Multicast>\n" +
-                "<tt:SessionTimeout>PT30S</tt:SessionTimeout>\n" +
+                "<tt:SessionTimeout>PT00H01M00S</tt:SessionTimeout>\n" +
                 "</tt:VideoEncoderConfiguration>\n" +
+                "<tt:AudioEncoderConfiguration token=\"encoder_config\">\n" +
+                "<tt:Name>encoder_config</tt:Name>\n" +
+                "<tt:UseCount>2</tt:UseCount>\n" +
+                "<tt:Encoding>G711</tt:Encoding>\n" +
+                "<tt:Bitrate>20</tt:Bitrate>\n" +
+                "<tt:SampleRate>8</tt:SampleRate>\n" +
+                "<tt:Multicast>\n" +
+                "<tt:Address>\n" +
+                "<tt:Type>IPv4</tt:Type>\n" +
+                "<tt:IPv4Address>0.0.0.0</tt:IPv4Address>\n" +
+                "</tt:Address>\n" +
+                "<tt:Port>6601</tt:Port>\n" +
+                "<tt:TTL>64</tt:TTL>\n" +
+                "<tt:AutoStart>false</tt:AutoStart>\n" +
+                "</tt:Multicast>\n" +
+                "<tt:SessionTimeout>PT00H01M00S</tt:SessionTimeout>\n" +
+                "</tt:AudioEncoderConfiguration>\n" +
+                "<tt:Extension>\n" +
+                "<tt:AudioOutputConfiguration token=\"AudioOutputConfigToken\">\n" +
+                "<tt:Name>AudioOutputConfigName</tt:Name>\n" +
+                "<tt:UseCount>2</tt:UseCount>\n" +
+                "<tt:OutputToken>AudioOutputToken</tt:OutputToken>\n" +
+                "<tt:SendPrimacy>www.onvif.org/ver20/HalfDuplex/Server</tt:SendPrimacy>\n" +
+                "<tt:OutputLevel>10</tt:OutputLevel>\n" +
+                "</tt:AudioOutputConfiguration>\n" +
+                "</tt:Extension>\n" +
+                "</trt:Profiles>\n" +
+                "<trt:Profiles fixed=\"false\" token=\"profile2\">\n" +
+                "<tt:Name>profile2</tt:Name>\n" +
+                "<tt:VideoSourceConfiguration token=\"source_config\">\n" +
+                "<tt:Name>stream1_sub</tt:Name>\n" +
+                "<tt:UseCount>2</tt:UseCount>\n" +
+                "<tt:SourceToken>VideoSource2</tt:SourceToken>\n" +
+                "<tt:Bounds height=\"" + videoHeight + "\" width=\"" + videoWidth + "\" x=\"0\" y=\"0\"></tt:Bounds>\n" +
+                "</tt:VideoSourceConfiguration>\n" +
+                "<tt:AudioSourceConfiguration token=\"AudioSourceConfigToken\">\n" +
+                "<tt:Name>AudioSourceConfig</tt:Name>\n" +
+                "<tt:UseCount>2</tt:UseCount>\n" +
+                "<tt:SourceToken>AudioSourceChannel</tt:SourceToken>\n" +
+                "</tt:AudioSourceConfiguration>\n" +
+                "<tt:VideoEncoderConfiguration token=\"encoder_config\">\n" +
+                "<tt:Name>encoder_config</tt:Name>\n" +
+                "<tt:UseCount>2</tt:UseCount>\n" +
+                "<tt:Encoding>H264</tt:Encoding>\n" +
+                "<tt:Resolution>\n" +
+                "<tt:Width>" + videoWidth + "</tt:Width>\n" +
+                "<tt:Height>" + videoHeight + "</tt:Height>\n" +
+                "</tt:Resolution>\n" +
+                "<tt:Quality>2</tt:Quality>\n" +
+                "<tt:RateControl>\n" +
+                "<tt:FrameRateLimit>" + 15 + "</tt:FrameRateLimit>\n" +
+                "<tt:EncodingInterval>0</tt:EncodingInterval>\n" +
+                "<tt:BitrateLimit>" + bitRate + "</tt:BitrateLimit>\n" +
+                "</tt:RateControl>\n" +
+                "<tt:H264>\n" +
+                "<tt:GovLength>0</tt:GovLength>\n" +
+                "<tt:H264Profile>Baseline</tt:H264Profile>\n" +
+                "</tt:H264>\n" +
+                "<tt:Multicast>\n" +
+                "<tt:Address>\n" +
+                "<tt:Type>IPv4</tt:Type>\n" +
+                "<tt:IPv4Address>0.0.0.0</tt:IPv4Address>\n" +
+                "</tt:Address>\n" +
+                "<tt:Port>6601</tt:Port>\n" +
+                "<tt:TTL>64</tt:TTL>\n" +
+                "<tt:AutoStart>false</tt:AutoStart>\n" +
+                "</tt:Multicast>\n" +
+                "<tt:SessionTimeout>PT00H01M00S</tt:SessionTimeout>\n" +
+                "</tt:VideoEncoderConfiguration>\n" +
+                "<tt:AudioEncoderConfiguration token=\"encoder_config\">\n" +
+                "<tt:Name>encoder_config</tt:Name>\n" +
+                "<tt:UseCount>2</tt:UseCount>\n" +
+                "<tt:Encoding>G711</tt:Encoding>\n" +
+                "<tt:Bitrate>20</tt:Bitrate>\n" +
+                "<tt:SampleRate>8</tt:SampleRate>\n" +
+                "<tt:Multicast>\n" +
+                "<tt:Address>\n" +
+                "<tt:Type>IPv4</tt:Type>\n" +
+                "<tt:IPv4Address>0.0.0.0</tt:IPv4Address>\n" +
+                "</tt:Address>\n" +
+                "<tt:Port>6601</tt:Port>\n" +
+                "<tt:TTL>64</tt:TTL>\n" +
+                "<tt:AutoStart>false</tt:AutoStart>\n" +
+                "</tt:Multicast>\n" +
+                "<tt:SessionTimeout>PT00H01M00S</tt:SessionTimeout>\n" +
+                "</tt:AudioEncoderConfiguration>\n" +
+                "<tt:Extension>\n" +
+                "<tt:AudioOutputConfiguration token=\"AudioOutputConfigToken\">\n" +
+                "<tt:Name>AudioOutputConfigName</tt:Name>\n" +
+                "<tt:UseCount>2</tt:UseCount>\n" +
+                "<tt:OutputToken>AudioOutputToken</tt:OutputToken>\n" +
+                "<tt:SendPrimacy>www.onvif.org/ver20/HalfDuplex/Server</tt:SendPrimacy>\n" +
+                "<tt:OutputLevel>10</tt:OutputLevel>\n" +
+                "</tt:AudioOutputConfiguration>\n" +
+                "</tt:Extension>\n" +
                 "</trt:Profiles>\n" +
                 "</trt:GetProfilesResponse>\n" +
-                "</env:Body>\n" +
-                "</env:Envelope>";
+                "</SOAP-ENV:Body>\n" +
+                "</SOAP-ENV:Envelope>";
 
         return response;
     }
@@ -549,6 +644,12 @@ public class ModOnvifServer implements HttpRequestHandler {
                 "<env:Envelope xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\" xmlns:tt=\"http://www.onvif.org/ver10/schema\">\n" +
                 "<env:Body>\n" +
                 "<trt:GetStreamUriResponse>\n" +
+                "<trt:MediaUri>\n" +
+                "<tt:Uri>" + rtspUrl + "</tt:Uri>\n" +
+                "<tt:InvalidAfterConnect>false</tt:InvalidAfterConnect>\n" +
+                "<tt:InvalidAfterReboot>false</tt:InvalidAfterReboot>\n" +
+                "<tt:Timeout>P1Y</tt:Timeout>\n" +
+                "</trt:MediaUri>\n" +
                 "<trt:MediaUri>\n" +
                 "<tt:Uri>" + rtspUrl + "</tt:Uri>\n" +
                 "<tt:InvalidAfterConnect>false</tt:InvalidAfterConnect>\n" +
