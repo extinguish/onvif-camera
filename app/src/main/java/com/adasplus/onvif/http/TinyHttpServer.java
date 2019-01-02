@@ -72,10 +72,10 @@ import java.util.Date;
 import java.util.LinkedList;
 import java.util.Map;
 
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLServerSocket;
-import javax.net.ssl.X509KeyManager;
+//import javax.net.ssl.KeyManager;
+//import javax.net.ssl.SSLContext;
+//import javax.net.ssl.SSLServerSocket;
+//import javax.net.ssl.X509KeyManager;
 
 /**
  * A Service that contains a HTTP server and a HTTPS server.
@@ -111,15 +111,15 @@ public class TinyHttpServer extends Service {
      */
     public final static int ERROR_HTTPS_BIND_FAILED = 0x01;
 
-    /**
-     * You need to add the class {@link ModSSL} to the package net.majorkernelpanic.http.
-     */
-    public final static int ERROR_HTTPS_NOT_SUPPORTED = 0x02;
-
-    /**
-     * An error occured with the HTTPS server :(
-     */
-    public final static int ERROR_HTTPS_SERVER_CRASHED = 0x03;
+//    /**
+//     * You need to add the class {@link ModSSL} to the package net.majorkernelpanic.http.
+//     */
+//    public final static int ERROR_HTTPS_NOT_SUPPORTED = 0x02;
+//
+//    /**
+//     * An error occured with the HTTPS server :(
+//     */
+//    public final static int ERROR_HTTPS_SERVER_CRASHED = 0x03;
 
     /**
      * Key used in the SharedPreferences to store whether the HTTP server is enabled or not.
@@ -141,21 +141,21 @@ public class TinyHttpServer extends Service {
      */
     public final static String KEY_HTTPS_PORT = "https_port";
 
-    /**
-     * Key used in the SharedPreferences for storing the password of the keystore.
-     */
-    public final static String KEY_PASSWORD = "https_password";
-
-    /**
-     * Name of the file used to store the keystore containing the certificates for HTTPS.
-     */
-    public final static String KEYSTORE_FILE_NAME = "keystore.jks";
-
-    /**
-     * Common name that will appear in the root certificate.
-     * You might want to extend {@link TinyHttpServer} to change that.
-     **/
-    protected String mCACommonName = "TinyHttpServer CA";
+//    /**
+//     * Key used in the SharedPreferences for storing the password of the keystore.
+//     */
+//    public final static String KEY_PASSWORD = "https_password";
+//
+//    /**
+//     * Name of the file used to store the keystore containing the certificates for HTTPS.
+//     */
+//    public final static String KEYSTORE_FILE_NAME = "keystore.jks";
+//
+//    /**
+//     * Common name that will appear in the root certificate.
+//     * You might want to extend {@link TinyHttpServer} to change that.
+//     **/
+//    protected String mCACommonName = "TinyHttpServer CA";
 
     /**
      * 用于注册特定的Http服务处理器
@@ -170,13 +170,14 @@ public class TinyHttpServer extends Service {
 
     protected int mHttpPort = DEFAULT_HTTP_PORT;
     protected int mHttpsPort = DEFAULT_HTTPS_PORT;
-    protected boolean mHttpEnabled = true, mHttpsEnabled = false;
+    protected boolean mHttpEnabled = true;
+    protected boolean mHttpsEnabled = false;
     protected final LinkedList<CallbackListener> mListeners = new LinkedList<>();
 
     private BasicHttpProcessor mHttpProcessor;
     private HttpParams mParams;
     private HttpRequestListener mHttpRequestListener = null;
-    private HttpsRequestListener mHttpsRequestListener = null;
+    // private HttpsRequestListener mHttpsRequestListener = null;
     private SharedPreferences mSharedPreferences;
     private boolean mHttpsUpdate = false, mHttpUpdate = false;
 
@@ -228,73 +229,73 @@ public class TinyHttpServer extends Service {
         mRegistry.register(pattern, handler);
     }
 
-    /**
-     * Sets the port for the HTTP server to use.
-     *
-     * @param port The port to use
-     */
-    public void setHttpPort(int port) {
-        Editor editor = mSharedPreferences.edit();
-        editor.putString(KEY_HTTP_PORT, String.valueOf(port));
-        editor.commit();
-    }
-
-    /**
-     * Sets the port for the HTTPS server to use.
-     *
-     * @param port The port to use
-     */
-    public void setHttpsPort(int port) {
-        Editor editor = mSharedPreferences.edit();
-        editor.putString(KEY_HTTPS_PORT, String.valueOf(port));
-        editor.commit();
-    }
-
-    /**
-     * Enables the HTTP server.
-     */
-    public void setHttpEnabled(boolean enable) {
-        Editor editor = mSharedPreferences.edit();
-        editor.putBoolean(KEY_HTTP_ENABLED, enable);
-        editor.commit();
-    }
-
-    /**
-     * Enables the HTTPS server.
-     */
-    public void setHttpsEnabled(boolean enable) {
-        Editor editor = mSharedPreferences.edit();
-        editor.putBoolean(KEY_HTTPS_ENABLED, enable);
-        editor.commit();
-    }
-
-    /**
-     * Returns the port used by the HTTP server.
-     */
-    public int getHttpPort() {
-        return mHttpPort;
-    }
-
-    /**
-     * Returns the port used by the HTTPS server.
-     */
-    public int getHttpsPort() {
-        return mHttpsPort;
-    }
-
-    /**
-     * Indicates whether or not the HTTP server is enabled.
-     */
-    public boolean isHttpEnabled() {
-        return mHttpEnabled;
-    }
-
-    /**
-     * Indicates whether or not the HTTPS server is enabled.
-     */
-    public boolean isHttpsEnabled() {
-        return mHttpsEnabled;
-    }
+//    /**
+//     * Sets the port for the HTTP server to use.
+//     *
+//     * @param port The port to use
+//     */
+//    public void setHttpPort(int port) {
+//        Editor editor = mSharedPreferences.edit();
+//        editor.putString(KEY_HTTP_PORT, String.valueOf(port));
+//        editor.commit();
+//    }
+//
+//    /**
+//     * Sets the port for the HTTPS server to use.
+//     *
+//     * @param port The port to use
+//     */
+//    public void setHttpsPort(int port) {
+//        Editor editor = mSharedPreferences.edit();
+//        editor.putString(KEY_HTTPS_PORT, String.valueOf(port));
+//        editor.commit();
+//    }
+//
+//    /**
+//     * Enables the HTTP server.
+//     */
+//    public void setHttpEnabled(boolean enable) {
+//        Editor editor = mSharedPreferences.edit();
+//        editor.putBoolean(KEY_HTTP_ENABLED, enable);
+//        editor.commit();
+//    }
+//
+//    /**
+//     * Enables the HTTPS server.
+//     */
+//    public void setHttpsEnabled(boolean enable) {
+//        Editor editor = mSharedPreferences.edit();
+//        editor.putBoolean(KEY_HTTPS_ENABLED, enable);
+//        editor.commit();
+//    }
+//
+//    /**
+//     * Returns the port used by the HTTP server.
+//     */
+//    public int getHttpPort() {
+//        return mHttpPort;
+//    }
+//
+//    /**
+//     * Returns the port used by the HTTPS server.
+//     */
+//    public int getHttpsPort() {
+//        return mHttpsPort;
+//    }
+//
+//    /**
+//     * Indicates whether or not the HTTP server is enabled.
+//     */
+//    public boolean isHttpEnabled() {
+//        return mHttpEnabled;
+//    }
+//
+//    /**
+//     * Indicates whether or not the HTTPS server is enabled.
+//     */
+//    public boolean isHttpsEnabled() {
+//        return mHttpsEnabled;
+//    }
 
     /**
      * Starts (or restart if needed) the HTTP server.
@@ -306,11 +307,11 @@ public class TinyHttpServer extends Service {
             mHttpRequestListener.kill();
             mHttpRequestListener = null;
         }
-        // Stops the HTTPS server if it has been disabled or if it needs to be restarted
-        if ((!mHttpsEnabled || mHttpsUpdate) && mHttpsRequestListener != null) {
-            mHttpsRequestListener.kill();
-            mHttpsRequestListener = null;
-        }
+//        // Stops the HTTPS server if it has been disabled or if it needs to be restarted
+//        if ((!mHttpsEnabled || mHttpsUpdate) && mHttpsRequestListener != null) {
+//            mHttpsRequestListener.kill();
+//            mHttpsRequestListener = null;
+//        }
         // Starts the HTTP server if needed
         if (mHttpEnabled && mHttpRequestListener == null) {
             try {
@@ -320,13 +321,13 @@ public class TinyHttpServer extends Service {
             }
         }
         // Starts the HTTPS server if needed
-        if (mHttpsEnabled && mHttpsRequestListener == null) {
-            try {
-                mHttpsRequestListener = new HttpsRequestListener(mHttpsPort);
-            } catch (Exception e) {
-                mHttpsRequestListener = null;
-            }
-        }
+//        if (mHttpsEnabled && mHttpsRequestListener == null) {
+//            try {
+//                mHttpsRequestListener = new HttpsRequestListener(mHttpsPort);
+//            } catch (Exception e) {
+//                mHttpsRequestListener = null;
+//            }
+//        }
 
         mHttpUpdate = false;
         mHttpsUpdate = false;
@@ -346,11 +347,11 @@ public class TinyHttpServer extends Service {
             mHttpRequestListener.kill();
             mHttpRequestListener = null;
         }
-        if (mHttpsRequestListener != null) {
-            // Stops the HTTPS server
-            mHttpsRequestListener.kill();
-            mHttpsRequestListener = null;
-        }
+//        if (mHttpsRequestListener != null) {
+//            // Stops the HTTPS server
+//            mHttpsRequestListener.kill();
+//            mHttpsRequestListener = null;
+//        }
     }
 
     @Override
@@ -416,7 +417,7 @@ public class TinyHttpServer extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        //Log.d(TAG,"TinyServerHttp started !");
+        Log.i(TAG, "TinyServerHttp started !");
         return START_STICKY;
     }
 
@@ -519,116 +520,116 @@ public class TinyHttpServer extends Service {
      * https服务
      * 监听{@link TinyHttpServer#mHttpsPort}.
      */
-    protected class HttpsRequestListener extends RequestListener {
-        private X509KeyManager mKeyManager = null;
-        private char[] mPassword;
-        private boolean mNotSupported = false;
-
-        private final String mClasspath = TinyHttpServer.class.getPackage().getName() + ".ModSSL$X509KeyManager";
-
-        HttpsRequestListener(final int port) throws Exception {
-            SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(TinyHttpServer.this);
-            if (!settings.contains(KEY_PASSWORD)) {
-                // Generates a password for the keystore
-                // TODO: entropy of Math.random() ?
-                String password = Integer.toString((int) (Math.random() * Integer.MAX_VALUE), 36);
-                Editor editor = settings.edit();
-                editor.putString(KEY_PASSWORD, password);
-                editor.commit();
-                mPassword = password.toCharArray();
-                mContext.deleteFile(KEYSTORE_FILE_NAME);
-            } else {
-                mPassword = settings.getString(KEY_PASSWORD, "XX").toCharArray();
-            }
-
-            // We create the X509KeyManager through reflexion so that SSL support can easily be removed if not needed
-            try {
-                Class<?> X509KeyManager = Class.forName(mClasspath);
-                Method loadFromKeyStore = X509KeyManager.getDeclaredMethod("loadFromKeyStore", InputStream.class, char[].class);
-
-                try {
-                    InputStream is = mContext.openFileInput(KEYSTORE_FILE_NAME);
-                    mKeyManager = (X509KeyManager) loadFromKeyStore.invoke(null, is, mPassword);
-                } catch (FileNotFoundException e) {
-                    Log.e(TAG, "fail to find " + KEYSTORE_FILE_NAME);
-                } catch (Exception e) {
-                    Log.e(TAG, "Could not open keystore, a new one will be created...");
-                    e.printStackTrace();
-                }
-
-                if (mKeyManager == null) {
-                    Constructor<?> constructor = X509KeyManager.getConstructor(new Class[]{char[].class, String.class});
-                    mKeyManager = (javax.net.ssl.X509KeyManager) constructor.newInstance(mPassword, mCACommonName);
-                }
-
-                SSLContext sslContext = SSLContext.getInstance("TLS");
-                sslContext.init(new KeyManager[]{mKeyManager}, null, null);
-                SSLServerSocket serverSocket = (SSLServerSocket) sslContext.getServerSocketFactory().createServerSocket(port);
-
-                serverSocket.setUseClientMode(false);
-                serverSocket.setEnableSessionCreation(true);
-                serverSocket.setWantClientAuth(false);
-
-                Log.d(TAG, "Protocol: " + sslContext.getProtocol());
-                Log.d(TAG, "Provider: " + sslContext.getProvider());
-                Log.d(TAG, "Cipher suites: " + arrToString(serverSocket.getEnabledCipherSuites()));
-                Log.d(TAG, "Protocols enabled: " + arrToString(serverSocket.getEnabledProtocols()));
-
-                serverSocket.setEnabledProtocols(new String[]{"TLSv1"});
-                serverSocket.setEnabledCipherSuites(new String[]{"TLS_RSA_WITH_AES_128_CBC_SHA"});
-                Log.d(TAG, "Cipher suites: " + arrToString(serverSocket.getEnabledCipherSuites()));
-                Log.d(TAG, "Protocols enabled: " + arrToString(serverSocket.getEnabledProtocols()));
-
-                construct(serverSocket);
-                Log.i(TAG, "HTTPS server listening on port " + serverSocket.getLocalPort());
-            } catch (NoSuchMethodException e) {
-                // HTTPS support disabled !
-                Log.e(TAG, "HTTPS not supported !");
-                postError(e, ERROR_HTTPS_NOT_SUPPORTED);
-                throw e;
-            } catch (BindException e) {
-                postError(e, ERROR_HTTPS_BIND_FAILED);
-                throw e;
-            } catch (Exception e) {
-                Log.e(TAG, "HTTPS server crashed !");
-                e.printStackTrace();
-                postError(e, ERROR_HTTPS_SERVER_CRASHED);
-                throw e;
-            }
-        }
-
-        private String arrToString(String[] list) {
-            StringBuilder str = new StringBuilder();
-            for (String aList : list) {
-                str.append(aList).append(";");
-            }
-            return str.toString();
-        }
-
-        /**
-         * Stops the {@link TinyHttpServer.RequestListener}
-         */
-        protected void kill() {
-            if (!mNotSupported) {
-                super.kill();
-                // Saves all the certificates generated by the our KeyManager in a keystore
-                try {
-                    Method saveToKeyStore = Class.forName(mClasspath).getDeclaredMethod("saveToKeyStore", OutputStream.class, char[].class);
-                    // Prevents concurrent write operation in the keystore
-                    OutputStream os = mContext.openFileOutput(KEYSTORE_FILE_NAME, Context.MODE_PRIVATE);
-                    saveToKeyStore.invoke(mKeyManager, os, mPassword);
-                } catch (NoSuchMethodException e) {
-                    // HTTPS support disabled !
-                    Log.e(TAG, "HTTPS not supported !");
-                    postError(e, ERROR_HTTPS_NOT_SUPPORTED);
-                } catch (Exception e) {
-                    System.out.println("An error occured while saving the KeyStore");
-                    e.printStackTrace();
-                }
-                Log.i(TAG, "HTTPS server stopped !");
-            }
-        }
-    }
+//    protected class HttpsRequestListener extends RequestListener {
+//        private X509KeyManager mKeyManager = null;
+//        private char[] mPassword;
+//        private boolean mNotSupported = false;
+//
+//        private final String mClasspath = TinyHttpServer.class.getPackage().getName() + ".ModSSL$X509KeyManager";
+//
+//        HttpsRequestListener(final int port) throws Exception {
+//            SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(TinyHttpServer.this);
+//            if (!settings.contains(KEY_PASSWORD)) {
+//                // Generates a password for the keystore
+//                // TODO: entropy of Math.random() ?
+//                String password = Integer.toString((int) (Math.random() * Integer.MAX_VALUE), 36);
+//                Editor editor = settings.edit();
+//                editor.putString(KEY_PASSWORD, password);
+//                editor.commit();
+//                mPassword = password.toCharArray();
+//                mContext.deleteFile(KEYSTORE_FILE_NAME);
+//            } else {
+//                mPassword = settings.getString(KEY_PASSWORD, "XX").toCharArray();
+//            }
+//
+//            // We create the X509KeyManager through reflexion so that SSL support can easily be removed if not needed
+//            try {
+//                Class<?> X509KeyManager = Class.forName(mClasspath);
+//                Method loadFromKeyStore = X509KeyManager.getDeclaredMethod("loadFromKeyStore", InputStream.class, char[].class);
+//
+//                try {
+//                    InputStream is = mContext.openFileInput(KEYSTORE_FILE_NAME);
+//                    mKeyManager = (X509KeyManager) loadFromKeyStore.invoke(null, is, mPassword);
+//                } catch (FileNotFoundException e) {
+//                    Log.e(TAG, "fail to find " + KEYSTORE_FILE_NAME);
+//                } catch (Exception e) {
+//                    Log.e(TAG, "Could not open keystore, a new one will be created...");
+//                    e.printStackTrace();
+//                }
+//
+//                if (mKeyManager == null) {
+//                    Constructor<?> constructor = X509KeyManager.getConstructor(new Class[]{char[].class, String.class});
+//                    mKeyManager = (javax.net.ssl.X509KeyManager) constructor.newInstance(mPassword, mCACommonName);
+//                }
+//
+//                SSLContext sslContext = SSLContext.getInstance("TLS");
+//                sslContext.init(new KeyManager[]{mKeyManager}, null, null);
+//                SSLServerSocket serverSocket = (SSLServerSocket) sslContext.getServerSocketFactory().createServerSocket(port);
+//
+//                serverSocket.setUseClientMode(false);
+//                serverSocket.setEnableSessionCreation(true);
+//                serverSocket.setWantClientAuth(false);
+//
+//                Log.d(TAG, "Protocol: " + sslContext.getProtocol());
+//                Log.d(TAG, "Provider: " + sslContext.getProvider());
+//                Log.d(TAG, "Cipher suites: " + arrToString(serverSocket.getEnabledCipherSuites()));
+//                Log.d(TAG, "Protocols enabled: " + arrToString(serverSocket.getEnabledProtocols()));
+//
+//                serverSocket.setEnabledProtocols(new String[]{"TLSv1"});
+//                serverSocket.setEnabledCipherSuites(new String[]{"TLS_RSA_WITH_AES_128_CBC_SHA"});
+//                Log.d(TAG, "Cipher suites: " + arrToString(serverSocket.getEnabledCipherSuites()));
+//                Log.d(TAG, "Protocols enabled: " + arrToString(serverSocket.getEnabledProtocols()));
+//
+//                construct(serverSocket);
+//                Log.i(TAG, "HTTPS server listening on port " + serverSocket.getLocalPort());
+//            } catch (NoSuchMethodException e) {
+//                // HTTPS support disabled !
+//                Log.e(TAG, "HTTPS not supported !");
+//                postError(e, ERROR_HTTPS_NOT_SUPPORTED);
+//                throw e;
+//            } catch (BindException e) {
+//                postError(e, ERROR_HTTPS_BIND_FAILED);
+//                throw e;
+//            } catch (Exception e) {
+//                Log.e(TAG, "HTTPS server crashed !");
+//                e.printStackTrace();
+//                postError(e, ERROR_HTTPS_SERVER_CRASHED);
+//                throw e;
+//            }
+//        }
+//
+//        private String arrToString(String[] list) {
+//            StringBuilder str = new StringBuilder();
+//            for (String aList : list) {
+//                str.append(aList).append(";");
+//            }
+//            return str.toString();
+//        }
+//
+//        /**
+//         * Stops the {@link TinyHttpServer.RequestListener}
+//         */
+//        protected void kill() {
+//            if (!mNotSupported) {
+//                super.kill();
+//                // Saves all the certificates generated by the our KeyManager in a keystore
+//                try {
+//                    Method saveToKeyStore = Class.forName(mClasspath).getDeclaredMethod("saveToKeyStore", OutputStream.class, char[].class);
+//                    // Prevents concurrent write operation in the keystore
+//                    OutputStream os = mContext.openFileOutput(KEYSTORE_FILE_NAME, Context.MODE_PRIVATE);
+//                    saveToKeyStore.invoke(mKeyManager, os, mPassword);
+//                } catch (NoSuchMethodException e) {
+//                    // HTTPS support disabled !
+//                    Log.e(TAG, "HTTPS not supported !");
+//                    postError(e, ERROR_HTTPS_NOT_SUPPORTED);
+//                } catch (Exception e) {
+//                    System.out.println("An error occured while saving the KeyStore");
+//                    e.printStackTrace();
+//                }
+//                Log.i(TAG, "HTTPS server stopped !");
+//            }
+//        }
+//    }
 
     private class RequestListener extends Thread {
         private ServerSocket mServerSocket;

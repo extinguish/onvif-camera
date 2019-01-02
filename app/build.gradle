@@ -2,12 +2,10 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 21
-    buildToolsVersion '28.0.3'
-
     defaultConfig {
         applicationId "com.adasplus.onvif"
         minSdkVersion 21
-        targetSdkVersion 28
+        targetSdkVersion 21
     }
 
     buildTypes {
@@ -16,15 +14,7 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-project.txt'
         }
     }
-    compileOptions {
-        sourceCompatibility = '1.7'
-        targetCompatibility = '1.7'
-    }
 }
 
 dependencies {
-    implementation 'com.android.support:support-v4:21.0.3'
-    implementation files('libs/sc-light-jdk15on-1.47.0.2.jar')
-    implementation files('libs/scpkix-jdk15on-1.47.0.2.jar')
-    implementation files('libs/scprov-jdk15on-1.47.0.2.jar')
 }

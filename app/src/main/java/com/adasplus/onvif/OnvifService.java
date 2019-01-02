@@ -10,7 +10,6 @@ import android.content.ServiceConnection;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.PowerManager;
-import android.support.annotation.Nullable;
 import android.util.Log;
 
 import com.adasplus.onvif.http.TinyHttpServer;
@@ -115,7 +114,6 @@ public class OnvifService extends Service {
         }
     }
 
-    @Nullable
     @Override
     public IBinder onBind(Intent intent) {
         Log.i(TAG, "on bind to onvif service");
