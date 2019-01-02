@@ -7,6 +7,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.os.Binder;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.support.annotation.Nullable;
@@ -19,7 +20,7 @@ import com.adasplus.onvif.http.TinyHttpServer;
  * only single entrance of the Onvif service.
  * <p>
  * TODO: in the following implementation, we use the gSoap to re-implement the onvif server.
- *
+ * <p>
  * When we need to test the onvif function, we need to execute the following command in adb as root user:
  * "busybox ifconfig eth0 promisc"
  * and only the upper command execute success, then we can accept the onvif probe packet from the
@@ -30,15 +31,40 @@ public class OnvifService extends Service {
     private PowerManager.WakeLock mWakeLock;
     private TinyHttpServer mHttpServer;
 
+    private final IBinder mBinder = new LocalBinder();
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.i(TAG, "start the onvif service");
         startInForeground();
         startOnvifService();
+        openPromiscFunc();
         return START_STICKY;
     }
 
+    /**
+     * the json object of which contains the content using to open promisc function
+     */
+    private static final String PROMISC_BROADCAST_CONTENT = "{\"sid\": \"\", \"cid\": \"\", \"cmd\": " +
+            "\"busybox ifconfig eth0 promisc\", \"d\": \"\", \"ty\": 0, \"tio\": 0}";
+
+    private static final String EXTRA_PARAMS = "params";
+
+    private static final String ACTION = "com.adasplus.action.remoteshell";
+
+    /**
+     * 通过ShellService来开启promisc模式，进而来实现接收组播消息的功能
+     */
+    private void openPromiscFunc() {
+        Log.i(TAG, "start to open the Promisc function");
+        Intent intent = new Intent();
+        intent.setAction(ACTION);
+        intent.putExtra(EXTRA_PARAMS, PROMISC_BROADCAST_CONTENT);
+        sendBroadcast(intent);
+    }
+
     private void startInForeground() {
-        Log.i(TAG, "start the RtmpService in foreground");
+        Log.i(TAG, "start the OnvifService in foreground");
         Notification.Builder foregroundNotificationBuilder =
                 new Notification.Builder(this)
                         .setAutoCancel(false)
@@ -83,12 +109,18 @@ public class OnvifService extends Service {
         this.stopService(new Intent(this, TinyHttpServer.class));
     }
 
+    private class LocalBinder extends Binder {
+        OnvifService getService() {
+            return OnvifService.this;
+        }
+    }
+
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        Log.i(TAG, "on bind to onvif service");
+        return mBinder;
     }
-
 
     private ServiceConnection mHttpServiceConnection = new ServiceConnection() {
 
