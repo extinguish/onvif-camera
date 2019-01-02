@@ -1,5 +1,3 @@
 include ':app'
-// include ':ipcamerafinder'
-// include ':multicastclient'
 
 rootProject.name="onvif-beta"

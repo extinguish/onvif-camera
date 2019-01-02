@@ -11,3 +11,4 @@ app/libs/
 build/
 ipcamerafinder/ipcamerafinder.iml
 app/app.iml
+*.log
